@@ -1,0 +1,55 @@
+{
+  "kind": "collectionType",
+  "collectionName": "pacients",
+  "info": {
+    "singularName": "pacient",
+    "pluralName": "pacients",
+    "displayName": "Pacient"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "nume": {
+      "type": "string",
+      "required": true
+    },
+    "prenume": {
+      "type": "string",
+      "required": true
+    },
+    "CNP": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "data_nasterii": {
+      "type": "string",
+      "required": true
+    },
+    "adresa": {
+      "type": "string"
+    },
+    "telefon": {
+      "type": "string",
+      "required": true
+    },
+    "email": {
+      "type": "email"
+    },
+    "istoric_medical": {
+      "type": "blocks"
+    },
+    "alergii": {
+      "type": "string"
+    },
+    "cabinet": {
+      "type": "string",
+      "required": true
+    },
+    "added_by": {
+      "type": "string"
+    }
+  }
+}

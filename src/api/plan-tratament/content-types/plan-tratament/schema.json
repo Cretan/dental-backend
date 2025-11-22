@@ -1,0 +1,41 @@
+{
+  "kind": "collectionType",
+  "collectionName": "plan_trataments",
+  "info": {
+    "singularName": "plan-tratament",
+    "pluralName": "plan-trataments",
+    "displayName": "PlanTratament"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "pacient": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "cabinet": {
+      "type": "string",
+      "required": true
+    },
+    "data_creare": {
+      "type": "datetime",
+      "required": true
+    },
+    "tratamente": {
+      "type": "string",
+      "required": true
+    },
+    "pret_total": {
+      "type": "decimal"
+    },
+    "observatii": {
+      "type": "blocks"
+    },
+    "added_by": {
+      "type": "string"
+    }
+  }
+}

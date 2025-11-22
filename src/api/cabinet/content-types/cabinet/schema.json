@@ -11,26 +11,39 @@
   },
   "pluginOptions": {},
   "attributes": {
-    "nume": {
+    "nume_cabinet": {
       "type": "string",
       "required": true,
       "unique": true
     },
-    "administrator": {
+    "adresa": {
+      "type": "string",
+      "required": true
+    },
+    "telefon": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "email": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "administrator_principal": {
       "type": "string",
       "required": true,
       "unique": true
     },
     "angajati": {
-      "type": "string",
-      "required": false,
-      "unique": false
-    },
-    "programari": {
       "type": "string"
     },
     "pacienti": {
       "type": "string"
+    },
+    "program_functionare": {
+      "type": "json",
+      "required": true
     }
   }
 }

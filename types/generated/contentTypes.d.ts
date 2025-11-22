@@ -441,25 +441,143 @@ export interface ApiCabinetCabinet extends Struct.CollectionTypeSchema {
     draftAndPublish: true;
   };
   attributes: {
-    administrator: Schema.Attribute.String &
+    administrator_principal: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
+    adresa: Schema.Attribute.String & Schema.Attribute.Required;
     angajati: Schema.Attribute.String;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    email: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'api::cabinet.cabinet'
     > &
       Schema.Attribute.Private;
-    nume: Schema.Attribute.String &
+    nume_cabinet: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
     pacienti: Schema.Attribute.String;
-    programari: Schema.Attribute.String;
+    program_functionare: Schema.Attribute.JSON & Schema.Attribute.Required;
     publishedAt: Schema.Attribute.DateTime;
+    telefon: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiPacientPacient extends Struct.CollectionTypeSchema {
+  collectionName: 'pacients';
+  info: {
+    displayName: 'Pacient';
+    pluralName: 'pacients';
+    singularName: 'pacient';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    added_by: Schema.Attribute.String;
+    adresa: Schema.Attribute.String;
+    alergii: Schema.Attribute.String;
+    cabinet: Schema.Attribute.String & Schema.Attribute.Required;
+    CNP: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    data_nasterii: Schema.Attribute.String & Schema.Attribute.Required;
+    email: Schema.Attribute.Email;
+    istoric_medical: Schema.Attribute.Blocks;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::pacient.pacient'
+    > &
+      Schema.Attribute.Private;
+    nume: Schema.Attribute.String & Schema.Attribute.Required;
+    prenume: Schema.Attribute.String & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    telefon: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiPlanTratamentPlanTratament
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'plan_trataments';
+  info: {
+    displayName: 'PlanTratament';
+    pluralName: 'plan-trataments';
+    singularName: 'plan-tratament';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    added_by: Schema.Attribute.String;
+    cabinet: Schema.Attribute.String & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    data_creare: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::plan-tratament.plan-tratament'
+    > &
+      Schema.Attribute.Private;
+    observatii: Schema.Attribute.Blocks;
+    pacient: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    pret_total: Schema.Attribute.Decimal;
+    publishedAt: Schema.Attribute.DateTime;
+    tratamente: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiVizitaVizita extends Struct.CollectionTypeSchema {
+  collectionName: 'vizitas';
+  info: {
+    displayName: 'Vizita';
+    pluralName: 'vizitas';
+    singularName: 'vizita';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    added_by: Schema.Attribute.String;
+    cabinet: Schema.Attribute.String & Schema.Attribute.Required;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    data_programare: Schema.Attribute.DateTime;
+    durata: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<60>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::vizita.vizita'
+    > &
+      Schema.Attribute.Private;
+    observatii: Schema.Attribute.String;
+    pacient: Schema.Attribute.String & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    tip_vizita: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -977,6 +1095,9 @@ declare module '@strapi/strapi' {
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
       'api::cabinet.cabinet': ApiCabinetCabinet;
+      'api::pacient.pacient': ApiPacientPacient;
+      'api::plan-tratament.plan-tratament': ApiPlanTratamentPlanTratament;
+      'api::vizita.vizita': ApiVizitaVizita;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

@@ -1,0 +1,40 @@
+{
+  "kind": "collectionType",
+  "collectionName": "vizitas",
+  "info": {
+    "singularName": "vizita",
+    "pluralName": "vizitas",
+    "displayName": "Vizita"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "pacient": {
+      "type": "string",
+      "required": true
+    },
+    "cabinet": {
+      "type": "string",
+      "required": true
+    },
+    "tip_vizita": {
+      "type": "string",
+      "required": true
+    },
+    "data_programare": {
+      "type": "datetime"
+    },
+    "durata": {
+      "type": "integer",
+      "default": 60
+    },
+    "observatii": {
+      "type": "string"
+    },
+    "added_by": {
+      "type": "string"
+    }
+  }
+}
