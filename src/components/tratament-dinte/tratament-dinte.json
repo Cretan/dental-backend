@@ -62,6 +62,14 @@
     },
     "observatii": {
       "type": "string"
+    },
+    "status_tratament": {
+      "type": "enumeration",
+      "enum": [
+        "Planificat",
+        "In_progres",
+        "Finalizat"
+      ]
     }
   },
   "config": {}

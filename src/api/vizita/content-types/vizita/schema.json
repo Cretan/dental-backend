@@ -11,30 +11,55 @@
   },
   "pluginOptions": {},
   "attributes": {
-    "pacient": {
-      "type": "string",
-      "required": true
-    },
     "cabinet": {
-      "type": "string",
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::cabinet.cabinet"
+    },
+    "pacient": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::pacient.pacient"
+    },
+    "data_programare": {
+      "type": "datetime",
       "required": true
     },
     "tip_vizita": {
-      "type": "string",
-      "required": true
-    },
-    "data_programare": {
-      "type": "datetime"
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "VizitaInitiala",
+        "PlanTratament",
+        "Programare"
+      ]
     },
     "durata": {
       "type": "integer",
       "default": 60
     },
+    "status_vizita": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "Programata",
+        "Confirmata",
+        "Finalizata",
+        "Anulata"
+      ]
+    },
+    "tratamente": {
+      "type": "component",
+      "component": "tratament-dinte.tratament-dinte",
+      "repeatable": true
+    },
     "observatii": {
       "type": "string"
     },
     "added_by": {
-      "type": "string"
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user"
     }
   }
 }

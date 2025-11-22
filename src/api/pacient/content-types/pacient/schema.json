@@ -25,7 +25,7 @@
       "unique": true
     },
     "data_nasterii": {
-      "type": "string",
+      "type": "date",
       "required": true
     },
     "adresa": {
@@ -45,11 +45,14 @@
       "type": "string"
     },
     "cabinet": {
-      "type": "string",
-      "required": true
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::cabinet.cabinet"
     },
     "added_by": {
-      "type": "string"
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user"
     }
   }
 }

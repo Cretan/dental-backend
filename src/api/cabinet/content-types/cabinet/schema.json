@@ -31,15 +31,20 @@
       "unique": true
     },
     "administrator_principal": {
-      "type": "string",
-      "required": true,
-      "unique": true
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user",
+      "mappedBy": "cabinet"
     },
     "angajati": {
-      "type": "string"
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "plugin::users-permissions.user"
     },
     "pacienti": {
-      "type": "string"
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::pacient.pacient"
     },
     "program_functionare": {
       "type": "json",

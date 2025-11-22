@@ -50,6 +50,9 @@ export interface TratamentDinteTratamentDinte extends Struct.ComponentSchema {
         },
         number
       >;
+    status_tratament: Schema.Attribute.Enumeration<
+      ['Planificat', 'In_progres', 'Finalizat']
+    >;
     tip_procedura: Schema.Attribute.Enumeration<
       [
         'AditieOs',
