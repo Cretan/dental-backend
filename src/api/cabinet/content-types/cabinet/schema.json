@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "cabinets",
+  "info": {
+    "singularName": "cabinet",
+    "pluralName": "cabinets",
+    "displayName": "Cabinet"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "nume": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "administrator": {
+      "type": "string",
+      "required": true,
+      "unique": true
+    },
+    "angajati": {
+      "type": "string",
+      "required": false,
+      "unique": false
+    },
+    "programari": {
+      "type": "string"
+    },
+    "pacienti": {
+      "type": "string"
+    }
+  }
+}
