@@ -23,7 +23,8 @@
     },
     "data_programare": {
       "type": "datetime",
-      "required": true
+      "required": true,
+      "unique": false
     },
     "tip_vizita": {
       "type": "enumeration",
