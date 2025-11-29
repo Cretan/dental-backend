@@ -12,19 +12,24 @@
     "start": "strapi start",
     "strapi": "strapi",
     "upgrade": "npx @strapi/upgrade latest",
-    "upgrade:dry": "npx @strapi/upgrade latest --dry"
+    "upgrade:dry": "npx @strapi/upgrade latest --dry",
+    "test": "node tests/test-runner.js",
+    "test:phase1": "node tests/phase-1-patient.test.js",
+    "test:phase2": "node tests/phase-2-treatment.test.js",
+    "test:phase3": "node tests/phase-3-visit.test.js"
   },
   "dependencies": {
     "@strapi/plugin-cloud": "5.31.2",
     "@strapi/plugin-users-permissions": "5.31.2",
     "@strapi/strapi": "5.31.2",
-    "better-sqlite3": "12.4.1",
+    "pg": "^8.16.3",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.0.0",
     "styled-components": "^6.0.0"
   },
   "devDependencies": {
+    "@faker-js/faker": "^10.1.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

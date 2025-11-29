@@ -7,6 +7,7 @@
   "attributes": {
     "numar_dinte": {
       "type": "enumeration",
+      "required": false,
       "enum": [
         "dinte_1.8",
         "dinte_1.7",

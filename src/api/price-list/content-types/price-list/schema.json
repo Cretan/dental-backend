@@ -1,0 +1,47 @@
+{
+  "kind": "collectionType",
+  "collectionName": "price_lists",
+  "info": {
+    "singularName": "price-list",
+    "pluralName": "price-lists",
+    "displayName": "PriceList",
+    "description": "Price list for dental procedures"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "tip_procedura": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "AditieOs",
+        "Canal",
+        "CoronitaAlbastra",
+        "CoronitaGalbena",
+        "CoronitaRoz",
+        "Extractie",
+        "Implant",
+        "Punte"
+      ]
+    },
+    "pret_standard": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "cabinet": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::cabinet.cabinet"
+    },
+    "descriere": {
+      "type": "string"
+    },
+    "activ": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

@@ -561,6 +561,58 @@ export interface ApiPlanTratamentPlanTratament
   };
 }
 
+export interface ApiPriceListPriceList extends Struct.CollectionTypeSchema {
+  collectionName: 'price_lists';
+  info: {
+    description: 'Price list for dental procedures';
+    displayName: 'PriceList';
+    pluralName: 'price-lists';
+    singularName: 'price-list';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    activ: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    cabinet: Schema.Attribute.Relation<'manyToOne', 'api::cabinet.cabinet'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    descriere: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::price-list.price-list'
+    > &
+      Schema.Attribute.Private;
+    pret_standard: Schema.Attribute.Decimal &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    publishedAt: Schema.Attribute.DateTime;
+    tip_procedura: Schema.Attribute.Enumeration<
+      [
+        'AditieOs',
+        'Canal',
+        'CoronitaAlbastra',
+        'CoronitaGalbena',
+        'CoronitaRoz',
+        'Extractie',
+        'Implant',
+        'Punte',
+      ]
+    > &
+      Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiVizitaVizita extends Struct.CollectionTypeSchema {
   collectionName: 'vizitas';
   info: {
@@ -1122,6 +1174,7 @@ declare module '@strapi/strapi' {
       'api::cabinet.cabinet': ApiCabinetCabinet;
       'api::pacient.pacient': ApiPacientPacient;
       'api::plan-tratament.plan-tratament': ApiPlanTratamentPlanTratament;
+      'api::price-list.price-list': ApiPriceListPriceList;
       'api::vizita.vizita': ApiVizitaVizita;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
