@@ -46,11 +46,11 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
       return ctx.badRequest('Cabinet not found');
     }
 
-    // Validation: Cannot schedule in the past
+    // Validation: Cannot schedule in the past (unless recording a completed/past visit)
     const appointmentDate = new Date(data.data_programare);
     const now = new Date();
     
-    if (appointmentDate < now) {
+    if (appointmentDate < now && !['Finalizata', 'Anulata'].includes(data.status_vizita)) {
       return ctx.badRequest('Cannot schedule appointment in the past');
     }
 
@@ -119,8 +119,10 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
     try {
       const response = await super.create(ctx);
       
-      // Fetch the full entity with populate to return complete data
+      // Fetch the full entity with populate to return complete data including documentId
       const createdId = response.data?.id || response.data?.data?.id;
+      const documentId = response.data?.documentId || response.data?.data?.documentId;
+      
       if (createdId) {
         const fullEntity = await strapi.db.query('api::vizita.vizita').findOne({
           where: { id: createdId },
@@ -130,6 +132,7 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
         return {
           data: {
             id: createdId,
+            documentId: documentId || fullEntity.documentId, // Include documentId
             attributes: fullEntity,
           },
         };
@@ -148,6 +151,15 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
   async update(ctx) {
     const { data } = ctx.request.body;
     const { id } = ctx.params;
+
+    // Get current visit first
+    const currentVisit = await strapi.db.query('api::vizita.vizita').findOne({
+      where: { documentId: id } // Use documentId for Strapi v5
+    });
+
+    if (!currentVisit) {
+      return ctx.notFound('Visit not found');
+    }
 
     // Validation: If patient is being updated, verify it exists
     if (data.pacient) {
@@ -176,17 +188,10 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
       const appointmentDate = new Date(data.data_programare);
       const now = new Date();
       
-      if (appointmentDate < now) {
+      const status = data.status_vizita || currentVisit.status_vizita;
+      
+      if (appointmentDate < now && !['Finalizata', 'Anulata'].includes(status)) {
         return ctx.badRequest('Cannot schedule appointment in the past');
-      }
-
-      // Get current visit to know cabinet and duration
-      const currentVisit = await strapi.db.query('api::vizita.vizita').findOne({
-        where: { id }
-      });
-
-      if (!currentVisit) {
-        return ctx.notFound('Visit not found');
       }
 
       const cabinetId = data.cabinet || currentVisit.cabinet?.id || currentVisit.cabinet;
@@ -196,7 +201,7 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
       // Find overlapping appointments (excluding current one)
       const conflicts = await strapi.db.query('api::vizita.vizita').findMany({
         where: {
-          id: { $ne: id }, // Exclude current visit
+          documentId: { $ne: id }, // Exclude current visit using documentId
           cabinet: cabinetId,
           status_vizita: {
             $in: ['Programata', 'Confirmata']
@@ -227,7 +232,7 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
       const response = await super.update(ctx);
       
       // Fetch the full entity with populate to return complete data with updated values
-      const updatedId = response.data?.id || id;
+      const updatedId = response.data?.id || currentVisit.id;
       if (updatedId) {
         const fullEntity = await strapi.db.query('api::vizita.vizita').findOne({
           where: { id: updatedId },
