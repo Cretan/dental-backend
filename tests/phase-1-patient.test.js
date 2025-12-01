@@ -12,6 +12,8 @@ const STRAPI_URL = 'http://localhost:1337';
 const API_BASE = `${STRAPI_URL}/api/pacients`;
 const TIMEOUT = 5000; // 5 second timeout
 const MAX_RETRIES = 3;
+const API_TOKEN = '11c77e75e59c95a7487a442d6df8c54727e674a2cb233ea37dc5ed3c51cfcf6588896d1b93161f658266768aa31240696f38a36d3ffa6989256b7b679c8bf7751b56dda969edb72e3d129ede081b914d789b34659d9c9fc3647111fd9d75ea3bbe3ee51a3aef3f0948549d37bed73c5569f00b277ab036af0aa1cafa42140379';
+const AUTH_HEADERS = { headers: { Authorization: `Bearer ${API_TOKEN}` } };
 
 // Colors for console output
 const colors = {
@@ -83,10 +85,11 @@ async function testValidPatientCreation() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: validCNP,
+        cnp: validCNP,
         data_nasterii: `${birthYear}-${birthMonth.toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`,
         telefon: `+4070011${timestamp}`,
-        email: `${name.firstName.toLowerCase()}.${name.lastName.toLowerCase()}.${timestamp}@test.ro`
+        email: `${name.firstName.toLowerCase()}.${name.lastName.toLowerCase()}.${timestamp}@test.ro`,
+        published_at: new Date().toISOString()
       }
     };
     
@@ -126,9 +129,10 @@ async function testInvalidCNP() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: 'invalid123',
+        cnp: 'invalid123',
         data_nasterii: '1990-01-01',
-        telefon: '+40700000000'
+        telefon: '+40700000000',
+        published_at: new Date().toISOString()
       }
     };
     
@@ -168,9 +172,10 @@ async function testInvalidPhone() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '1900101012349',
+        cnp: '1900101012349',
         data_nasterii: '1990-01-01',
-        telefon: '123' // Invalid phone
+        telefon: '123', // Invalid phone
+        published_at: new Date().toISOString()
       }
     };    const response = await axios.post(API_BASE, invalidPatient, {
       timeout: TIMEOUT,
@@ -261,16 +266,33 @@ async function testStatisticsEndpoint() {
  */
 async function cleanupTestPatient(documentId) {
   if (!documentId) return;
-  
+
   log('\n🧹 Cleaning up test data...', 'cyan');
-  
+
   try {
     await axios.delete(`${API_BASE}/${documentId}`, {
-      timeout: TIMEOUT
+      timeout: TIMEOUT,
+      ...AUTH_HEADERS
     });
-    log('✅ Test patient deleted', 'green');
+    // Verificăm dacă pacientul a fost șters
+    try {
+      await axios.get(`${API_BASE}/${documentId}`, {
+        timeout: TIMEOUT,
+        ...AUTH_HEADERS
+      });
+      log('❌ Patient was NOT deleted! Test failed.', 'red');
+      process.exit(1);
+    } catch (getErr) {
+      if (getErr.response && getErr.response.status === 404) {
+        log('✅ Test patient deleted and confirmed', 'green');
+      } else {
+        log('⚠️  Could not confirm deletion (unexpected error)', 'yellow');
+        process.exit(1);
+      }
+    }
   } catch (error) {
-    log('⚠️  Could not delete test patient (may not exist)', 'yellow');
+    log('❌ Could not delete test patient (delete failed)', 'red');
+    process.exit(1);
   }
 }
 
@@ -291,9 +313,10 @@ async function testCNPWrongLength(type) {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: cnpValue,
+        cnp: cnpValue,
         data_nasterii: '1990-01-01',
-        telefon: '+40700000000'
+        telefon: '+40700000000',
+        published_at: new Date().toISOString()
       }
     }, {
       timeout: TIMEOUT,
@@ -326,7 +349,8 @@ async function testCNPNonNumeric() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '12345ABC67890',
+        cnp: '12345ABC67890',
+        published_at: new Date().toISOString()
         data_nasterii: '1990-01-01',
         telefon: '+40700000000'
       }
@@ -828,12 +852,13 @@ async function testDuplicateCNP() {
     // Create first patient
     const first = await axios.post(API_BASE, {
       data: {
-        nume: name1.lastName,
-        prenume: name1.firstName,
-        CNP: cnp,
-        data_nasterii: '1992-03-20',
-        telefon: `+4070020${timestamp}`
-      }
+        nume: name.lastName,
+        prenume: name.firstName,
+        cnp: validCNP,
+        data_nasterii: `${birthYear}-${birthMonth.toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`,
+        telefon: `+4070011${timestamp}`,
+        email: `${name.firstName.toLowerCase()}.${name.lastName.toLowerCase()}.${timestamp}@test.ro`,
+        published_at: new Date().toISOString()
     }, {
       timeout: TIMEOUT,
       headers: { 'Content-Type': 'application/json' }

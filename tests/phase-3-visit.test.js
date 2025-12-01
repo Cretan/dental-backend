@@ -113,10 +113,11 @@ async function setupTestData() {
         data: {
           nume: name.lastName,
           prenume: name.firstName,
-          CNP: validCNP,
+          cnp: validCNP,
           data_nasterii: `${randomYear}-${randomMonth.toString().padStart(2, '0')}-${randomDay.toString().padStart(2, '0')}`,
           telefon: `+4070033${timestamp}`,
           email: `${name.firstName.toLowerCase()}.${name.lastName.toLowerCase()}.${timestamp}@test.ro`,
+          published_at: new Date().toISOString(),
         },
       },
       { timeout: TIMEOUT }

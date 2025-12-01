@@ -279,13 +279,14 @@ async function createPatient(cabinet) {
     data: {
       nume: name.lastName,
       prenume: name.firstName,
-      CNP: cnp,
+      cnp: cnp,
       data_nasterii: `${birthYear}-${birthMonth.toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`,
       telefon: phone,
       email: email,
       adresa: address,
       istoric_medical: randomElement(medicalConditions),
       alergii: randomElement(allergies),
+      published_at: new Date().toISOString(),
       cabinet: cabinet.id,
       added_by: addedBy.id
     }

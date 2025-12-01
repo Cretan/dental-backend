@@ -79,10 +79,11 @@ async function createSimulatedPatient(cabinetIds, startYear = 2015) {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: cnp,
+        cnp: cnp,
         data_nasterii: `${birthYear}-${birthMonth.toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`,
         telefon: phone,
-        email: email
+        email: email,
+        published_at: new Date().toISOString()
       }
     });
     

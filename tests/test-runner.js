@@ -192,6 +192,31 @@ async function main() {
   };
 
   try {
+    // Step 0: Check and free port 1337 if needed (Windows only)
+    const net = require('net');
+    const port = CONFIG.STRAPI_PORT;
+    function checkPort(port) {
+      return new Promise((resolve) => {
+        const tester = net.createServer()
+          .once('error', err => (err.code === 'EADDRINUSE' ? resolve(false) : resolve(true)))
+          .once('listening', () => tester.once('close', () => resolve(true)).close())
+          .listen(port);
+      });
+    }
+    const isFree = await checkPort(port);
+    if (!isFree) {
+      console.log(`${colors.yellow}⚠️  Port ${port} is in use. Attempting to free it...${colors.reset}`);
+      const { execSync } = require('child_process');
+      try {
+        // Find and kill process on port 1337 (Windows only)
+        execSync('powershell -Command "Get-Process -Id (Get-NetTCPConnection -LocalPort 1337 -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess | Stop-Process -Force"');
+        console.log(`${colors.green}✓ Port ${port} has been freed.${colors.reset}`);
+      } catch (e) {
+        console.log(`${colors.red}❌ Failed to free port ${port}: ${e.message}${colors.reset}`);
+        throw e;
+      }
+    }
+
     // Step 1: Start Strapi
     await startStrapi();
     

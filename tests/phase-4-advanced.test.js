@@ -33,10 +33,11 @@ const createTestPatient = async (suffix = '') => {
     data: {
       nume: name.lastName,
       prenume: name.firstName,
-      CNP: cnp,
+      cnp: cnp,
       data_nasterii: `${birthYear}-${birthMonth.toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`,
       telefon: `+40700${Math.floor(100000 + Math.random() * 900000)}`,
-      email: `${name.firstName.toLowerCase()}.${name.lastName.toLowerCase()}.${suffix}@test.ro`
+      email: `${name.firstName.toLowerCase()}.${name.lastName.toLowerCase()}.${suffix}@test.ro`,
+      published_at: new Date().toISOString(),
     }
   });
   return response.data.data;
