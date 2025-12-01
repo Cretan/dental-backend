@@ -495,7 +495,7 @@ export interface ApiPacientPacient extends Struct.CollectionTypeSchema {
     adresa: Schema.Attribute.String;
     alergii: Schema.Attribute.String;
     cabinet: Schema.Attribute.Relation<'oneToOne', 'api::cabinet.cabinet'>;
-    CNP: Schema.Attribute.String &
+    cnp: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
     createdAt: Schema.Attribute.DateTime;

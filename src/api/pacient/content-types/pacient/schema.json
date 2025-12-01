@@ -19,7 +19,7 @@
       "type": "string",
       "required": true
     },
-    "CNP": {
+    "cnp": {
       "type": "string",
       "required": true,
       "unique": true

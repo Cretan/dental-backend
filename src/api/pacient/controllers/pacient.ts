@@ -5,6 +5,21 @@
 import { factories } from '@strapi/strapi';
 
 export default factories.createCoreController('api::pacient.pacient', ({ strapi }) => ({
+    /**
+     * Log and delete patient
+     */
+    async delete(ctx) {
+      strapi.log.info(`[PACIENT DELETE] Cerere DELETE pentru pacient ID: ${ctx.params.id}`);
+      try {
+        const result = await super.delete(ctx);
+        strapi.log.info(`[PACIENT DELETE] Rezultat Strapi:`);
+        console.dir(result, { depth: 5 });
+        return result;
+      } catch (error) {
+        strapi.log.error(`[PACIENT DELETE] Eroare la ștergere pacient ID ${ctx.params.id}: ${error.message}`);
+        throw error;
+      }
+    },
   /**
    * Create patient with validation
    */
