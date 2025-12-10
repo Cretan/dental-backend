@@ -77,17 +77,30 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
    * Create treatment plan with validation
    */
   async create(ctx) {
-    const { data } = ctx.request.body;
+    try {
+      strapi.log.info('=== CREATE CALLED ===');
+      
+      const { data } = ctx.request.body;
 
-    // Validation: Patient is required
-    if (!data.pacient) {
-      return ctx.badRequest('Patient is required');
-    }
+      // DEBUG: Log what we receive
+      strapi.log.info('RAW REQUEST BODY:', JSON.stringify(ctx.request.body, null, 2));
+      strapi.log.info('DATA.PACIENT TYPE:', typeof data.pacient);
+      strapi.log.info('DATA.PACIENT VALUE:', JSON.stringify(data.pacient));
 
-    // Validation: Verify patient exists
-    const patient = await strapi.db.query('api::pacient.pacient').findOne({
-      where: { id: data.pacient }
-    });
+      // Validation: Patient is required
+      if (!data.pacient) {
+        return ctx.badRequest('Patient is required');
+      }
+
+      // Extract relation IDs (Strapi sends them as objects or IDs depending on format)
+      const pacientId = typeof data.pacient === 'object' ? data.pacient.id : data.pacient;
+      const cabinetId = data.cabinet ? (typeof data.cabinet === 'object' ? data.cabinet.id : data.cabinet) : null;
+
+      strapi.log.info('EXTRACTED PACIENT ID:', pacientId);
+      strapi.log.info('EXTRACTED CABINET ID:', cabinetId);
+
+      // Validation: Verify patient exists
+      const patient = await strapi.db.query('api::pacient.pacient').findOne({ where: { id: pacientId } });
     
     if (!patient) {
       return ctx.badRequest('Patient not found');
@@ -131,36 +144,49 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
     const pret_total = data.tratamente.reduce((sum, t) => sum + (parseFloat(t.pret) || 0), 0);
     data.pret_total = parseFloat(pret_total.toFixed(2));
 
-    // All validations passed - create plan
-    try {
-      const response = await super.create(ctx);
-      
-      // Fetch the full entity with populate to return complete data
-      const createdId = response.data?.id || response.data?.data?.id;
-      if (createdId) {
-        const fullEntity = await strapi.db.query('api::plan-tratament.plan-tratament').findOne({
-          where: { id: createdId },
-          populate: true,
-        });
-        
-        // Transform tooth numbers: remove "dinte_" prefix for frontend
-        if (fullEntity && fullEntity.tratamente) {
-          fullEntity.tratamente = transformTratamenteForFrontend(fullEntity.tratamente);
-        }
-        
-        return {
-          data: {
-            id: createdId,
-            attributes: fullEntity,
-          },
-        };
-      }
-      
-      return response;
-    } catch (error) {
-      strapi.log.error('Treatment plan creation error:', error);
-      return ctx.internalServerError('Failed to create treatment plan');
+    // Debug logging
+    strapi.log.info('Creating plan with extracted IDs:', JSON.stringify({
+      pacientId,
+      cabinetId,
+      tratamente_count: data.tratamente?.length,
+      tratamente_sample: data.tratamente?.[0],
+    }));
+    
+    // Prepare data for creation
+    const createData = {
+      data_creare: data.data_creare,
+      pret_total: data.pret_total,
+      observatii: data.observatii,
+      publishedAt: data.publishedAt || new Date().toISOString(),
+      pacient: pacientId, // relation as ID
+      cabinet: cabinetId, // relation as ID (can be null)
+      tratamente: data.tratamente, // components as array
+    };
+    
+    // Use entityService for proper relation handling
+    const createdPlan = await strapi.entityService.create('api::plan-tratament.plan-tratament', {
+      data: createData,
+      populate: ['pacient', 'cabinet', 'tratamente'],
+    }) as any;
+    
+    // Transform tooth numbers: remove "dinte_" prefix for frontend
+    if (createdPlan && createdPlan.tratamente) {
+      createdPlan.tratamente = transformTratamenteForFrontend(createdPlan.tratamente);
     }
+    
+    // Return in Strapi v5 format with attributes
+    return {
+      data: {
+        id: createdPlan.id,
+        documentId: createdPlan.documentId,
+        attributes: createdPlan, // entityService returns flat object
+      },
+    };
+  } catch (error) {
+    strapi.log.error('Treatment plan creation error:', error.message || error);
+    strapi.log.error('Stack:', error.stack);
+    return ctx.internalServerError('Failed to create treatment plan');
+  }
   },
 
   /**
@@ -401,16 +427,16 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
       await strapi.db.query('api::plan-tratament.plan-tratament').update({
         where: { id },
         data: {
-          pret_total: totalAfterDiscount.toFixed(2)
+          pret_total: parseFloat(totalAfterDiscount.toFixed(2)) // Store as number, not string
         }
       });
 
       return {
-        subtotal: subtotal.toFixed(2),
+        subtotal: parseFloat(subtotal.toFixed(2)),
         discount_percent,
-        discount_amount: discountAmount.toFixed(2),
-        total: totalAfterDiscount.toFixed(2),
-        savings: discountAmount.toFixed(2),
+        discount_amount: parseFloat(discountAmount.toFixed(2)),
+        total: parseFloat(totalAfterDiscount.toFixed(2)),
+        savings: parseFloat(discountAmount.toFixed(2)),
       };
     } catch (error) {
       strapi.log.error('Apply discount error:', error);

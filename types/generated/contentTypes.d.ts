@@ -494,7 +494,7 @@ export interface ApiPacientPacient extends Struct.CollectionTypeSchema {
     >;
     adresa: Schema.Attribute.String;
     alergii: Schema.Attribute.String;
-    cabinet: Schema.Attribute.Relation<'oneToOne', 'api::cabinet.cabinet'>;
+    cabinet: Schema.Attribute.Relation<'manyToOne', 'api::cabinet.cabinet'>;
     cnp: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
@@ -536,7 +536,7 @@ export interface ApiPlanTratamentPlanTratament
       'oneToOne',
       'plugin::users-permissions.user'
     >;
-    cabinet: Schema.Attribute.Relation<'oneToOne', 'api::cabinet.cabinet'>;
+    cabinet: Schema.Attribute.Relation<'manyToOne', 'api::cabinet.cabinet'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -628,7 +628,7 @@ export interface ApiVizitaVizita extends Struct.CollectionTypeSchema {
       'oneToOne',
       'plugin::users-permissions.user'
     >;
-    cabinet: Schema.Attribute.Relation<'oneToOne', 'api::cabinet.cabinet'>;
+    cabinet: Schema.Attribute.Relation<'manyToOne', 'api::cabinet.cabinet'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -641,7 +641,7 @@ export interface ApiVizitaVizita extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     observatii: Schema.Attribute.String;
-    pacient: Schema.Attribute.Relation<'oneToOne', 'api::pacient.pacient'>;
+    pacient: Schema.Attribute.Relation<'manyToOne', 'api::pacient.pacient'>;
     publishedAt: Schema.Attribute.DateTime;
     status_vizita: Schema.Attribute.Enumeration<
       ['Programata', 'Confirmata', 'Finalizata', 'Anulata']
@@ -1120,6 +1120,10 @@ export interface PluginUsersPermissionsUser
   attributes: {
     blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     cabinet: Schema.Attribute.Relation<'oneToOne', 'api::cabinet.cabinet'>;
+    cabinet_angajat: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::cabinet.cabinet'
+    >;
     confirmationToken: Schema.Attribute.String & Schema.Attribute.Private;
     confirmed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     createdAt: Schema.Attribute.DateTime;

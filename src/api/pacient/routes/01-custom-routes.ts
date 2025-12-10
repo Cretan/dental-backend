@@ -4,25 +4,17 @@
 
 export default {
   routes: [
+    // Search endpoint
     {
       method: 'GET',
       path: '/pacients/search',
       handler: 'pacient.search',
-      config: {
-        auth: false,
-        policies: [],
-        middlewares: [],
-      },
     },
+    // Statistics endpoint
     {
       method: 'GET',
       path: '/pacients/statistics',
       handler: 'pacient.statistics',
-      config: {
-        auth: false,
-        policies: [],
-        middlewares: [],
-      },
     },
   ],
 };

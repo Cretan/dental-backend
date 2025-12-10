@@ -71,6 +71,12 @@
       "relation": "oneToOne",
       "target": "api::cabinet.cabinet",
       "inversedBy": "administrator_principal"
+    },
+    "cabinet_angajat": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::cabinet.cabinet",
+      "inversedBy": "angajati"
     }
   }
 }

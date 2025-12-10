@@ -2,6 +2,6 @@
  * cabinet router
  */
 
-import { factories } from '@strapi/strapi';
+import { factories } from "@strapi/strapi";
 
-export default factories.createCoreRouter('api::cabinet.cabinet');
+export default factories.createCoreRouter("api::cabinet.cabinet");

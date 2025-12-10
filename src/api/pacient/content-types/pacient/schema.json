@@ -46,8 +46,9 @@
     },
     "cabinet": {
       "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::cabinet.cabinet"
+      "relation": "manyToOne",
+      "target": "api::cabinet.cabinet",
+      "inversedBy": "pacienti"
     },
     "added_by": {
       "type": "relation",

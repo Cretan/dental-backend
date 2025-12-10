@@ -30,6 +30,7 @@ function calculateCNPChecksum(cnp12) {
  * @param {string} options.gender - 'M' or 'F'
  * @param {number} options.county - County code (1-52)
  * @param {number} options.sequence - Sequence number (1-999)
+ * @param {number} options.uniqueId - Unique ID for guaranteed uniqueness (optional)
  * @returns {string} - Valid 13-digit CNP
  */
 function generateValidCNP(options = {}) {
@@ -38,8 +39,19 @@ function generateValidCNP(options = {}) {
   const month = options.month || 1;
   const day = options.day || 1;
   const gender = options.gender || 'M';
-  const county = options.county || 10; // Buzau
-  const sequence = options.sequence || Math.floor(Math.random() * 900) + 100;
+  
+  // Use uniqueId to ensure uniqueness across large datasets
+  // Split uniqueId into county (1-52) and sequence (1-999)
+  let county, sequence;
+  if (options.uniqueId !== undefined) {
+    // Distribute uniqueId across county (52) and sequence (999)
+    // This gives us 52 * 999 = 51,948 unique combinations per date/gender
+    county = (options.uniqueId % 52) + 1;
+    sequence = Math.floor(options.uniqueId / 52) % 999 + 1;
+  } else {
+    county = options.county || 10; // Buzau
+    sequence = options.sequence || Math.floor(Math.random() * 900) + 100;
+  }
   
   // Determine S (first digit) based on century and gender
   let s;

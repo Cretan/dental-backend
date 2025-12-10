@@ -1,17 +1,49 @@
 /**
  * Phase 2 Testing: Treatment Plan Management
  * Tests: Auto-calculation, validation, summary, cost calculation, discount, invoice generation
+ * 
+ * ✨ NOW SUPPORTS INDEPENDENT EXECUTION ✨
+ * Run directly: node phase-2-treatment.test.js
  */
 
 const axios = require('axios');
 const { generateValidCNP } = require('./cnp-generator');
 const { generateRomanianName } = require('./romanian-names');
+const StrapiLifecycle = require('./strapi-lifecycle');
 
 // Configuration
 const STRAPI_URL = process.env.STRAPI_URL || 'http://localhost:1337';
 const API_BASE = `${STRAPI_URL}/api`;
 const TIMEOUT = 10000;
 const MAX_RETRIES = 3;
+
+// Authentication credentials for testing
+const TEST_USER = {
+  identifier: 'test@test.com',
+  password: 'Test123!@#'
+};
+
+let JWT_TOKEN = null;
+let TEST_USER_ID = null; // Authenticated user ID for added_by field
+
+// Default config
+const defaultConfig = {
+  timeout: TIMEOUT,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+};
+
+// Function to get auth config with JWT
+function getAuthConfig() {
+  return {
+    ...defaultConfig,
+    headers: {
+      ...defaultConfig.headers,
+      'Authorization': `Bearer ${JWT_TOKEN}`
+    }
+  };
+}
 
 // Color codes for console output
 const colors = {
@@ -36,6 +68,46 @@ let createdCabinetId = null;
 let createdPlanIds = [];
 
 /**
+ * Login and get JWT token and user ID
+ */
+async function loginAndGetToken() {
+  console.log(`${colors.cyan}🔐 Authenticating test user...${colors.reset}`);
+  
+  // Wait a bit for Strapi to be fully ready
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  const MAX_AUTH_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_AUTH_RETRIES; attempt++) {
+    try {
+      const response = await axios.post(`${STRAPI_URL}/api/auth/local`, TEST_USER, {
+        timeout: TIMEOUT
+      });
+      
+      if (response.data && response.data.jwt) {
+        JWT_TOKEN = response.data.jwt;
+        TEST_USER_ID = response.data.user?.id || response.data.user?.documentId;
+        console.log(`${colors.green}✓ Authentication successful (User ID: ${TEST_USER_ID})${colors.reset}`);
+        return true;
+      }
+      
+      console.log(`${colors.yellow}⚠ No JWT token received (attempt ${attempt}/${MAX_AUTH_RETRIES})${colors.reset}`);
+    } catch (error) {
+      console.log(`${colors.yellow}⚠ Authentication failed (attempt ${attempt}/${MAX_AUTH_RETRIES}): ${error.message}${colors.reset}`);
+      if (error.response) {
+        console.log(`${colors.gray}   Response: ${JSON.stringify(error.response.data)}${colors.reset}`);
+      }
+      
+      if (attempt < MAX_AUTH_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+  }
+  
+  console.log(`${colors.red}✗ Authentication failed after all retries${colors.reset}`);
+  return false;
+}
+
+/**
  * Check if Strapi is healthy and responding
  */
 async function checkStrapiHealth() {
@@ -44,6 +116,13 @@ async function checkStrapiHealth() {
     try {
       const response = await axios.get(`${STRAPI_URL}/_health`, { timeout: 5000 });
       if (response.status === 200 || response.status === 204) {
+        // After health check, authenticate
+        if (attempts === 0) {
+          const authenticated = await loginAndGetToken();
+          if (!authenticated) {
+            return false;
+          }
+        }
         return true;
       }
     } catch (error) {
@@ -84,14 +163,34 @@ function logTest(name, passed, message = '') {
 }
 
 /**
- * Setup: Create a test patient and cabinet
+ * Setup: Create a test cabinet and patient
  */
 async function setupTestData() {
   console.log(`\n${colors.cyan}═══ Setting up test data ═══${colors.reset}\n`);
 
   try {
-    // Create test patient with unique data and VALID CNP
+    // Create test cabinet FIRST with unique identifiers
     const timestamp = Date.now().toString().slice(-4);
+    const uniquePhone = `+40700${Math.floor(100000 + Math.random() * 900000)}`;
+    const uniqueEmail = `cabinet.phase2.${timestamp}.${Math.floor(Math.random() * 1000)}@test.ro`;
+    const cabinetResponse = await axios.post(
+      `${API_BASE}/cabinets`,
+      {
+        data: {
+          nume_cabinet: `Cabinet Stomatologic ${timestamp}`,
+          adresa: 'Str. Test nr. 2',
+          telefon: uniquePhone,
+          email: uniqueEmail,
+          program_functionare: { luni: '9-17', marti: '9-17' },
+          publishedAt: new Date().toISOString(),
+        },
+      },
+      { ...getAuthConfig() }
+    );
+    createdCabinetId = cabinetResponse.data.data.id;
+    console.log(`${colors.green}✓${colors.reset} Created test cabinet (ID: ${createdCabinetId})`);
+
+    // Create test patient with cabinet link
     const name = generateRomanianName('F');
     const birthYear = 1980 + Math.floor(Math.random() * 10); // 1980-1990
     const birthMonth = 6;
@@ -114,34 +213,16 @@ async function setupTestData() {
           prenume: name.firstName,
           cnp: validCNP,
           data_nasterii: `${birthYear}-${birthMonth.toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`,
+          publishedAt: new Date().toISOString(),
           telefon: `+4070022${timestamp}`,
           email: `${name.firstName.toLowerCase()}.${name.lastName.toLowerCase()}.${timestamp}@test.ro`,
-          published_at: new Date().toISOString(),
+          cabinet: createdCabinetId // Link to cabinet
         },
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
     createdPatientId = patientResponse.data.data.id;
     console.log(`${colors.green}✓${colors.reset} Created test patient (ID: ${createdPatientId})`);
-
-    // Create test cabinet with unique identifiers
-    const uniquePhone = `+40700${Math.floor(100000 + Math.random() * 900000)}`;
-    const uniqueEmail = `cabinet.phase2.${timestamp}.${Math.floor(Math.random() * 1000)}@test.ro`;
-    const cabinetResponse = await axios.post(
-      `${API_BASE}/cabinets`,
-      {
-        data: {
-          nume_cabinet: `Cabinet Stomatologic ${timestamp}`,
-          adresa: 'Str. Test nr. 2',
-          telefon: uniquePhone,
-          email: uniqueEmail,
-          program_functionare: { luni: '9-17', marti: '9-17' },
-        },
-      },
-      { timeout: TIMEOUT }
-    );
-    createdCabinetId = cabinetResponse.data.data.id;
-    console.log(`${colors.green}✓${colors.reset} Created test cabinet (ID: ${createdCabinetId})`);
 
     return true;
   } catch (error) {
@@ -174,7 +255,7 @@ async function cleanup() {
   // Delete treatment plans
   for (const planId of createdPlanIds) {
     try {
-      await axios.delete(`${API_BASE}/plan-trataments/${planId}`, { timeout: TIMEOUT });
+      await axios.delete(`${API_BASE}/plan-trataments/${planId}`, { ...getAuthConfig() });
       console.log(`${colors.gray}Deleted plan ${planId}${colors.reset}`);
     } catch (error) {
       console.log(`${colors.yellow}Could not delete plan ${planId}${colors.reset}`);
@@ -184,7 +265,7 @@ async function cleanup() {
   // Delete patient
   if (createdPatientId) {
     try {
-      await axios.delete(`${API_BASE}/pacients/${createdPatientId}`, { timeout: TIMEOUT });
+      await axios.delete(`${API_BASE}/pacients/${createdPatientId}`, { ...getAuthConfig() });
       console.log(`${colors.gray}Deleted patient ${createdPatientId}${colors.reset}`);
     } catch (error) {
       console.log(`${colors.yellow}Could not delete patient${colors.reset}`);
@@ -194,7 +275,7 @@ async function cleanup() {
   // Delete cabinet
   if (createdCabinetId) {
     try {
-      await axios.delete(`${API_BASE}/cabinets/${createdCabinetId}`, { timeout: TIMEOUT });
+      await axios.delete(`${API_BASE}/cabinets/${createdCabinetId}`, { ...getAuthConfig() });
       console.log(`${colors.gray}Deleted cabinet ${createdCabinetId}${colors.reset}`);
     } catch (error) {
       console.log(`${colors.yellow}Could not delete cabinet${colors.reset}`);
@@ -217,7 +298,7 @@ async function testTreatmentPlanValidation() {
           tratamente: [{ tip_procedura: 'Canal', numar_dinte: 'dinte_1.6', pret: 150 }],
         },
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
     logTest('Missing patient validation', false, 'Should have rejected request without patient');
   } catch (error) {
@@ -231,10 +312,11 @@ async function testTreatmentPlanValidation() {
       {
         data: {
           pacient: 999999,
+          publishedAt: new Date().toISOString(),
           tratamente: [{ tip_procedura: 'Canal', numar_dinte: 'dinte_1.6', pret: 150 }],
         },
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
     logTest('Non-existent patient validation', false, 'Should have rejected non-existent patient');
   } catch (error) {
@@ -248,10 +330,12 @@ async function testTreatmentPlanValidation() {
       {
         data: {
           pacient: createdPatientId,
+          cabinet: createdCabinetId,
+          publishedAt: new Date().toISOString(),
           tratamente: [],
         },
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
     logTest('Empty treatments validation', false, 'Should have rejected empty treatments');
   } catch (error) {
@@ -265,10 +349,12 @@ async function testTreatmentPlanValidation() {
       {
         data: {
           pacient: createdPatientId,
-          tratamente: [{ tip_procedura: 'Canal', numar_dinte: 'dinte_1.6', pret: -50 }],
+          cabinet: createdCabinetId,
+          publishedAt: new Date().toISOString(),
+          tratamente: [{ tip_procedura: 'Extractie', numar_dinte: null, pret: -50 }],
         },
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
     logTest('Negative price validation', false, 'Should have rejected negative price');
   } catch (error) {
@@ -289,6 +375,8 @@ async function testAutoCalculation() {
       {
         data: {
           pacient: createdPatientId,
+          cabinet: createdCabinetId,
+          publishedAt: new Date().toISOString(),
           tratamente: [
             { tip_procedura: 'Canal', numar_dinte: 'dinte_1.6', pret: 150.50 },
             { tip_procedura: 'Extractie', numar_dinte: null, pret: 200.25 },
@@ -296,7 +384,7 @@ async function testAutoCalculation() {
           ],
         },
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
 
     const plan = response.data.data;
@@ -336,7 +424,7 @@ async function testAutoCalculation() {
           ],
         },
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
 
     const updatedPlan = updateResponse.data.data;
@@ -368,6 +456,7 @@ async function testTreatmentSummary() {
         data: {
           pacient: createdPatientId,
           cabinet: createdCabinetId,
+          publishedAt: new Date().toISOString(),
           tratamente: [
             { tip_procedura: 'Canal', numar_dinte: 'dinte_1.6', pret: 150, status_tratament: 'Planificat' },
             { tip_procedura: 'Canal', numar_dinte: 'dinte_1.7', pret: 150, status_tratament: 'In_progres' },
@@ -376,14 +465,14 @@ async function testTreatmentSummary() {
           ],
         },
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
 
     const planId = response.data.data.id;
     createdPlanIds.push(planId);
 
     // Get summary
-    const summaryResponse = await axios.get(`${API_BASE}/plan-trataments/${planId}/summary`, { timeout: TIMEOUT });
+    const summaryResponse = await axios.get(`${API_BASE}/plan-trataments/${planId}/summary`, { ...getAuthConfig() });
     const summary = summaryResponse.data;
 
     logTest('Summary returns patient info', summary.patient !== null && summary.patient !== undefined, 'Patient info present');
@@ -412,7 +501,7 @@ async function testTreatmentSummary() {
 
     // Test: Summary for non-existent plan
     try {
-      await axios.get(`${API_BASE}/plan-trataments/999999/summary`, { timeout: TIMEOUT });
+      await axios.get(`${API_BASE}/plan-trataments/999999/summary`, { ...getAuthConfig() });
       logTest('Summary 404 for non-existent plan', false, 'Should return 404');
     } catch (error) {
       logTest('Summary 404 for non-existent plan', error.response?.status === 404, 'Correctly returned 404');
@@ -439,7 +528,7 @@ async function testPriceCalculation() {
           { tip_procedura: 'Extractie', numar_dinte: null, pret: 200 },
         ],
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
 
     const result = response.data;
@@ -462,7 +551,7 @@ async function testPriceCalculation() {
 
     // Test: Empty treatments array
     try {
-      await axios.post(`${API_BASE}/plan-trataments/calculate-cost`, { tratamente: [] }, { timeout: TIMEOUT });
+      await axios.post(`${API_BASE}/plan-trataments/calculate-cost`, { tratamente: [] }, { ...getAuthConfig() });
       logTest('Calculate cost rejects empty array', false, 'Should reject empty treatments');
     } catch (error) {
       logTest('Calculate cost rejects empty array', error.response?.status === 400, 'Correctly rejected empty array');
@@ -470,7 +559,7 @@ async function testPriceCalculation() {
 
     // Test: Missing tratamente field
     try {
-      await axios.post(`${API_BASE}/plan-trataments/calculate-cost`, {}, { timeout: TIMEOUT });
+      await axios.post(`${API_BASE}/plan-trataments/calculate-cost`, {}, { ...getAuthConfig() });
       logTest('Calculate cost requires tratamente', false, 'Should require tratamente field');
     } catch (error) {
       logTest('Calculate cost requires tratamente', error.response?.status === 400, 'Correctly required tratamente');
@@ -487,16 +576,18 @@ async function testDiscountCalculation() {
   console.log(`\n${colors.cyan}═══ Test 2.13: Discount Calculation ═══${colors.reset}\n`);
 
   try {
-    // Create a plan for discount testing
+    // Create a plan for discount testing with 1000 RON total
     const response = await axios.post(
       `${API_BASE}/plan-trataments`,
       {
         data: {
           pacient: createdPatientId,
-          tratamente: [{ tip_procedura: 'Canal', numar_dinte: 'dinte_1.6', pret: 1000 }],
+          cabinet: createdCabinetId,
+          publishedAt: new Date().toISOString(),
+          tratamente: [{ tip_procedura: 'Canal', numar_dinte: 'dinte_1.6', pret: 1000 }], // 1000 RON for discount tests
         },
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
 
     const planId = response.data.data.id;
@@ -506,7 +597,7 @@ async function testDiscountCalculation() {
     const discount10Response = await axios.post(
       `${API_BASE}/plan-trataments/${planId}/apply-discount`,
       { discount_percent: 10 },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
 
     const discount10 = discount10Response.data;
@@ -525,7 +616,7 @@ async function testDiscountCalculation() {
     const discount50Response = await axios.post(
       `${API_BASE}/plan-trataments/${planId}/apply-discount`,
       { discount_percent: 50 },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
 
     const discount50 = discount50Response.data;
@@ -539,7 +630,7 @@ async function testDiscountCalculation() {
     const discount100Response = await axios.post(
       `${API_BASE}/plan-trataments/${planId}/apply-discount`,
       { discount_percent: 100 },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
 
     const discount100 = discount100Response.data;
@@ -549,7 +640,7 @@ async function testDiscountCalculation() {
     const discount0Response = await axios.post(
       `${API_BASE}/plan-trataments/${planId}/apply-discount`,
       { discount_percent: 0 },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
 
     const discount0 = discount0Response.data;
@@ -561,7 +652,7 @@ async function testDiscountCalculation() {
 
     // Test: Negative discount
     try {
-      await axios.post(`${API_BASE}/plan-trataments/${planId}/apply-discount`, { discount_percent: -10 }, { timeout: TIMEOUT });
+      await axios.post(`${API_BASE}/plan-trataments/${planId}/apply-discount`, { discount_percent: -10 }, { ...getAuthConfig() });
       logTest('Reject negative discount', false, 'Should reject negative discount');
     } catch (error) {
       logTest('Reject negative discount', error.response?.status === 400, 'Correctly rejected negative discount');
@@ -569,7 +660,7 @@ async function testDiscountCalculation() {
 
     // Test: Discount > 100%
     try {
-      await axios.post(`${API_BASE}/plan-trataments/${planId}/apply-discount`, { discount_percent: 150 }, { timeout: TIMEOUT });
+      await axios.post(`${API_BASE}/plan-trataments/${planId}/apply-discount`, { discount_percent: 150 }, { ...getAuthConfig() });
       logTest('Reject discount > 100%', false, 'Should reject discount > 100%');
     } catch (error) {
       logTest('Reject discount > 100%', error.response?.status === 400, 'Correctly rejected discount > 100%');
@@ -593,20 +684,21 @@ async function testInvoiceGeneration() {
         data: {
           pacient: createdPatientId,
           cabinet: createdCabinetId,
+          publishedAt: new Date().toISOString(),
           tratamente: [
             { tip_procedura: 'Canal', numar_dinte: 'dinte_1.6', pret: 150 },
             { tip_procedura: 'Extractie', numar_dinte: null, pret: 200 },
           ],
         },
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
 
     const planId = response.data.data.id;
     createdPlanIds.push(planId);
 
     // Test: Generate invoice without initial_tratamente
-    const invoice1Response = await axios.post(`${API_BASE}/plan-trataments/${planId}/generate-invoice`, {}, { timeout: TIMEOUT });
+    const invoice1Response = await axios.post(`${API_BASE}/plan-trataments/${planId}/generate-invoice`, {}, { ...getAuthConfig() });
 
     const invoice1 = invoice1Response.data;
     logTest('Invoice includes patient info', invoice1.patient !== null && invoice1.patient !== undefined, 'Patient info present');
@@ -621,7 +713,7 @@ async function testInvoiceGeneration() {
       {
         initial_tratamente: [{ tip_procedura: 'Canal', numar_dinte: 'dinte_1.6', pret: 150 }],
       },
-      { timeout: TIMEOUT }
+      { ...getAuthConfig() }
     );
 
     const invoice2 = invoice2Response.data;
@@ -633,7 +725,7 @@ async function testInvoiceGeneration() {
 
     // Test: Invoice for non-existent plan
     try {
-      await axios.post(`${API_BASE}/plan-trataments/999999/generate-invoice`, {}, { timeout: TIMEOUT });
+      await axios.post(`${API_BASE}/plan-trataments/999999/generate-invoice`, {}, { ...getAuthConfig() });
       logTest('Invoice 404 for non-existent plan', false, 'Should return 404');
     } catch (error) {
       logTest('Invoice 404 for non-existent plan', error.response?.status === 404, 'Correctly returned 404');
@@ -651,20 +743,34 @@ async function runTests() {
   console.log(`${colors.cyan}║         Phase 2 Testing: Treatment Plan Management        ║${colors.reset}`);
   console.log(`${colors.cyan}╚════════════════════════════════════════════════════════════╝${colors.reset}\n`);
 
-  // Check Strapi health
-  console.log(`${colors.yellow}⏳ Checking if Strapi is running...${colors.reset}`);
-  const isHealthy = await checkStrapiHealth();
+  // Initialize Strapi lifecycle management
+  const lifecycle = new StrapiLifecycle();
+  
+  try {
+    // Ensure Strapi is running (will start if needed)
+    await lifecycle.ensureStrapiRunning();
+    
+    // Check Strapi health
+    console.log(`${colors.yellow}⏳ Checking if Strapi is running...${colors.reset}`);
+    const isHealthy = await checkStrapiHealth();
 
-  if (!isHealthy) {
-    console.error(`\n${colors.red}✗ Strapi is not responding. Please start it with: npm run develop${colors.reset}\n`);
-    process.exit(1);
-  }
+    if (!isHealthy) {
+      console.error(`\n${colors.red}✗ Strapi is not responding${colors.reset}\n`);
+      await lifecycle.cleanup();
+      process.exit(1);
+    }
 
-  console.log(`${colors.green}✓ Strapi is running${colors.reset}`);
+    console.log(`${colors.green}✓ Strapi is running${colors.reset}`);
 
-  // Setup test data
-  const setupSuccess = await setupTestData();
-  if (!setupSuccess) {
+    // Setup test data
+    const setupSuccess = await setupTestData();
+    if (!setupSuccess) {
+      await lifecycle.cleanup();
+      process.exit(1);
+    }
+    
+    // Continue with original test logic...
+    if (!setupSuccess) {
     console.error(`\n${colors.red}✗ Failed to setup test data${colors.reset}\n`);
     process.exit(1);
   }
@@ -681,7 +787,34 @@ async function runTests() {
   // Cleanup all test data before Strapi stops
   try {
     console.log(`\n${colors.yellow}🧹 Cleaning up all test data before exit...${colors.reset}`);
-    await axios.post(`${STRAPI_URL}/cleanup-database`, {}, { timeout: TIMEOUT });
+    
+    // Delete all treatment plans created during tests
+    for (const planId of createdPlanIds) {
+      try {
+        await axios.delete(`${API_BASE}/plan-trataments/${planId}`, { ...getAuthConfig() });
+      } catch (delErr) {
+        // Ignore individual deletion errors
+      }
+    }
+    
+    // Delete test patient
+    if (createdPatientId) {
+      try {
+        await axios.delete(`${API_BASE}/pacients/${createdPatientId}`, { ...getAuthConfig() });
+      } catch (delErr) {
+        // Ignore
+      }
+    }
+    
+    // Delete test cabinet
+    if (createdCabinetId) {
+      try {
+        await axios.delete(`${API_BASE}/cabinets/${createdCabinetId}`, { ...getAuthConfig() });
+      } catch (delErr) {
+        // Ignore
+      }
+    }
+    
     console.log(`${colors.green}✅ Cleanup complete.${colors.reset}`);
   } catch (cleanupError) {
     console.log(`${colors.red}❌ Cleanup failed: ${cleanupError.message}${colors.reset}`);
@@ -699,11 +832,20 @@ async function runTests() {
   console.log(`  ${colors.red}Failed:       ${testResults.failed}${colors.reset}`);
   console.log(`  Pass Rate:    ${passRate}%\n`);
 
+  // Cleanup Strapi lifecycle
+  await lifecycle.cleanup();
+
   if (testResults.failed === 0) {
     console.log(`${colors.green}✓ All tests passed!${colors.reset}\n`);
     process.exit(0);
   } else {
     console.log(`${colors.red}✗ Some tests failed${colors.reset}\n`);
+    process.exit(1);
+  }
+  
+  } catch (fatalError) {
+    console.error(`\n${colors.red}✗ Fatal error in test execution:${colors.reset}`, fatalError);
+    await lifecycle.cleanup();
     process.exit(1);
   }
 }
@@ -713,4 +855,8 @@ runTests().catch((error) => {
   console.error(`\n${colors.red}✗ Unexpected error:${colors.reset}`, error);
   process.exit(1);
 });
+
+
+
+
 

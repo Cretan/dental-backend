@@ -7,15 +7,59 @@
  * - 2.24-2.27: Stress & Performance Tests
  * - 2.28-2.31: Regression Tests
  * - 2.32-2.34: Error Handling Tests
+ * 
+ * ✨ NOW SUPPORTS INDEPENDENT EXECUTION ✨
+ * Run directly: node phase-4-advanced.test.js
  */
 
 const axios = require('axios');
 const { generateValidCNP } = require('./cnp-generator');
 const { generateRomanianName } = require('./romanian-names');
+const StrapiLifecycle = require('./strapi-lifecycle');
 const BASE_URL = 'http://localhost:1337/api';
 
+// Test user credentials
+const TEST_USER = {
+  identifier: 'test@test.com',
+  password: 'Test123!@#'
+};
+let JWT_TOKEN = null;
+let TEST_USER_ID = null; // Authenticated user ID for added_by field
+
+// Auth config helper
+function getAuthConfig() {
+  return {
+    timeout: 10000,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${JWT_TOKEN}`
+    }
+  };
+}
+
+/**
+ * Login and get JWT token and user ID
+ */
+async function loginAndGetToken() {
+  try {
+    const response = await axios.post('http://localhost:1337/api/auth/local', TEST_USER, {
+      timeout: 10000
+    });
+    
+    if (response.data && response.data.jwt) {
+      JWT_TOKEN = response.data.jwt;
+      TEST_USER_ID = response.data.user?.id || response.data.user?.documentId;
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.log(`Authentication failed: ${error.message}`);
+    return false;
+  }
+}
+
 // Utility functions
-const createTestPatient = async (suffix = '') => {
+const createTestPatient = async (suffix = '', cabinetId = null) => {
   const name = generateRomanianName();
   const birthYear = 1980 + Math.floor(Math.random() * 20); // 1980-2000
   const birthMonth = Math.floor(Math.random() * 12) + 1;
@@ -37,9 +81,9 @@ const createTestPatient = async (suffix = '') => {
       data_nasterii: `${birthYear}-${birthMonth.toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`,
       telefon: `+40700${Math.floor(100000 + Math.random() * 900000)}`,
       email: `${name.firstName.toLowerCase()}.${name.lastName.toLowerCase()}.${suffix}@test.ro`,
-      published_at: new Date().toISOString(),
+      cabinet: cabinetId, // Link to cabinet (required)
     }
-  });
+  }, getAuthConfig());
   return response.data.data;
 };
 
@@ -55,7 +99,7 @@ const createTestCabinet = async (suffix = '') => {
         marti: '9-17'
       }
     }
-  });
+  }, getAuthConfig());
   return response.data.data;
 };
 
@@ -98,7 +142,7 @@ const runPriceListTests = async () => {
           descriere: 'Root canal treatment',
           activ: true
         }
-      });
+      }, getAuthConfig());
       
       if (priceResponse.data.data.id) {
         console.log('✓ Create price entry');
@@ -119,7 +163,7 @@ const runPriceListTests = async () => {
         data: {
           pret_standard: 100
         }
-      });
+      }, getAuthConfig());
       console.log('✗ tip_procedura required - Entry created without tip_procedura');
       failed++;
     } catch (error) {
@@ -138,7 +182,7 @@ const runPriceListTests = async () => {
         data: {
           tip_procedura: 'Extractie'
         }
-      });
+      }, getAuthConfig());
       console.log('✗ pret_standard required - Entry created without price');
       failed++;
     } catch (error) {
@@ -158,7 +202,7 @@ const runPriceListTests = async () => {
           tip_procedura: 'Extractie',
           pret_standard: -50
         }
-      });
+      }, getAuthConfig());
       console.log('✗ pret_standard >= 0 - Negative price accepted');
       failed++;
     } catch (error) {
@@ -179,7 +223,7 @@ const runPriceListTests = async () => {
           data: {
             pret_standard: 300
           }
-        });
+        }, getAuthConfig());
         console.log('✓ Update price');
         passed++;
       } catch (error) {
@@ -192,7 +236,7 @@ const runPriceListTests = async () => {
     if (testData.priceLists.length > 0) {
       try {
         const priceDocId = testData.priceLists[0].documentId;
-        const getResponse = await axios.get(`${BASE_URL}/price-lists/${priceDocId}`);
+        const getResponse = await axios.get(`${BASE_URL}/price-lists/${priceDocId}`, getAuthConfig());
         if (getResponse.data.data) {
           console.log('✓ Get price by ID');
           passed++;
@@ -208,7 +252,7 @@ const runPriceListTests = async () => {
 
     // Test 7: Get all prices
     try {
-      const response = await axios.get(`${BASE_URL}/price-lists`);
+      const response = await axios.get(`${BASE_URL}/price-lists`, getAuthConfig());
       if (Array.isArray(response.data.data)) {
         console.log('✓ Get all prices');
         passed++;
@@ -223,7 +267,7 @@ const runPriceListTests = async () => {
 
     // Test 8: Get prices by cabinet
     try {
-      const response = await axios.get(`${BASE_URL}/price-lists?filters[cabinet][id][$eq]=${cabinet.id}`);
+      const response = await axios.get(`${BASE_URL}/price-lists?filters[cabinet][id][$eq]=${cabinet.id}`, getAuthConfig());
       if (Array.isArray(response.data.data)) {
         console.log('✓ Get prices by cabinet');
         passed++;
@@ -238,7 +282,7 @@ const runPriceListTests = async () => {
 
     // Test 9: Get active prices only
     try {
-      const response = await axios.get(`${BASE_URL}/price-lists?filters[activ][$eq]=true`);
+      const response = await axios.get(`${BASE_URL}/price-lists?filters[activ][$eq]=true`, getAuthConfig());
       if (Array.isArray(response.data.data)) {
         console.log('✓ Get active prices only');
         passed++;
@@ -260,7 +304,7 @@ const runPriceListTests = async () => {
           cabinet: cabinet.id,
           activ: false
         }
-      });
+      }, getAuthConfig());
       
       if (priceResponse.data.data.id) {
         console.log('✓ Create inactive price');
@@ -279,7 +323,7 @@ const runPriceListTests = async () => {
     if (testData.priceLists.length > 1) {
       try {
         const priceId = testData.priceLists[1].id;
-        await axios.delete(`${BASE_URL}/price-lists/${priceId}`);
+        await axios.delete(`${BASE_URL}/price-lists/${priceId}`, getAuthConfig());
         console.log('✓ Delete price');
         passed++;
       } catch (error) {
@@ -310,14 +354,15 @@ const runIntegrationTests = async () => {
     console.log('--- Test 2.20: End-to-End Patient Flow ---');
     
     try {
-      // Create patient
-      const patient = await createTestPatient('E2E');
-      testData.patients.push(patient);
-      
-      // Create treatment plan
+      // Create cabinet FIRST
       const cabinet = await createTestCabinet('E2E');
       testData.cabinets.push(cabinet);
       
+      // Create patient with cabinet link
+      const patient = await createTestPatient('E2E', cabinet.id);
+      testData.patients.push(patient);
+      
+      // Create treatment plan
       const planResponse = await axios.post(`${BASE_URL}/plan-trataments`, {
         data: {
           pacient: patient.id,
@@ -326,7 +371,7 @@ const runIntegrationTests = async () => {
             { tip_procedura: 'Canal', numar_dinte: '1.6', pret: 250 }
           ]
         }
-      });
+      }, getAuthConfig());
       
       const planId = planResponse.data.data.id;
       testData.treatmentPlans.push(planResponse.data.data);
@@ -365,10 +410,10 @@ const runIntegrationTests = async () => {
           pret_standard: 150,
           cabinet: cabinet2.id
         }
-      });
+      }, getAuthConfig());
       
       // Get prices from price list
-      const pricesResponse = await axios.get(`${BASE_URL}/price-lists?filters[cabinet][id][$eq]=${cabinet2.id}`);
+      const pricesResponse = await axios.get(`${BASE_URL}/price-lists?filters[cabinet][id][$eq]=${cabinet2.id}`, getAuthConfig());
       
       if (pricesResponse.data.data.length > 0) {
         console.log('✓ Get prices from price list');
@@ -454,7 +499,7 @@ const runIntegrationTests = async () => {
             { tip_procedura: 'Punte', numar_dinte: '2.1', pret: 500 }
           ]
         }
-      });
+      }, getAuthConfig());
       
       if (planResponse.data.data.id) {
         console.log('✓ Treatment plan with cabinet assignment');
@@ -487,13 +532,17 @@ const runStressTests = async () => {
   console.log('--- Test 2.24: Database Stress Tests ---');
   
   try {
+    // Create a shared cabinet for all stress test patients
+    const stressCabinet = await createTestCabinet('StressTest');
+    testData.cabinets.push(stressCabinet);
+    
     const startTime = Date.now();
     const patientsToCreate = 100; // Reduced from 10,000 for reasonable test time
     const created = [];
     
     for (let i = 0; i < patientsToCreate; i++) {
       try {
-        const patient = await createTestPatient(`Stress${i}`);
+        const patient = await createTestPatient(`Stress${i}`, stressCabinet.id);
         created.push(patient);
       } catch (error) {
         // Skip duplicates
@@ -510,7 +559,7 @@ const runStressTests = async () => {
     // Cleanup
     for (const patient of created) {
       try {
-        await axios.delete(`${BASE_URL}/pacients/${patient.id}`);
+        await axios.delete(`${BASE_URL}/pacients/${patient.id}`, getAuthConfig());
       } catch (e) {}
     }
   } catch (error) {
@@ -544,8 +593,8 @@ const runStressTests = async () => {
   console.log('\n--- Test 2.26: Edge Case Stress Tests ---');
   
   try {
-    const patient = await createTestPatient('EdgeCase');
     const cabinet = await createTestCabinet('EdgeCase');
+    const patient = await createTestPatient('EdgeCase', cabinet.id);
     
     // Treatment plan with 50+ treatments
     const treatments = [];
@@ -563,18 +612,18 @@ const runStressTests = async () => {
         cabinet: cabinet.id,
         tratamente: treatments
       }
-    });
+    }, getAuthConfig());
     
     if (planResponse.data.data.id) {
       console.log('✓ Treatment plan with 50+ treatments');
       passed++;
       
       // Cleanup
-      await axios.delete(`${BASE_URL}/plan-trataments/${planResponse.data.data.id}`);
+      await axios.delete(`${BASE_URL}/plan-trataments/${planResponse.data.data.id}`, getAuthConfig());
     }
     
-    await axios.delete(`${BASE_URL}/pacients/${patient.id}`);
-    await axios.delete(`${BASE_URL}/cabinets/${cabinet.id}`);
+    await axios.delete(`${BASE_URL}/pacients/${patient.id}`, getAuthConfig());
+    await axios.delete(`${BASE_URL}/cabinets/${cabinet.id}`, getAuthConfig());
   } catch (error) {
     console.log('✗ Edge case stress test:', error.response?.data?.error?.message || error.message);
     failed++;
@@ -616,16 +665,16 @@ const runRegressionTests = async () => {
       data: {
         nume: 'RegressionTest',
         prenume: 'CNP',
-        CNP: validCNP,
+        cnp: validCNP,
         data_nasterii: '1993-07-24',
         telefon: `+40700${Math.floor(100000 + Math.random() * 900000)}`,
         email: `regression.${Date.now()}@test.ro`
       }
-    });
+    }, getAuthConfig());
     
     if (patient.data.data.id) {
       regressionPassed++;
-      await axios.delete(`${BASE_URL}/pacients/${patient.data.data.id}`);
+      await axios.delete(`${BASE_URL}/pacients/${patient.data.data.id}`, getAuthConfig());
     }
     
     // Invalid CNP should still fail
@@ -634,12 +683,12 @@ const runRegressionTests = async () => {
         data: {
           nume: 'Invalid',
           prenume: 'CNP',
-          CNP: '1234567890123',
+          cnp: '1234567890123',
           data_nasterii: '1993-07-24',
           telefon: `+40700${Math.floor(100000 + Math.random() * 900000)}`,
           email: `invalid.${Date.now()}@test.ro`
         }
-      });
+      }, getAuthConfig());
       regressionFailed++;
     } catch (error) {
       if (error.response?.status === 400) {
@@ -665,8 +714,8 @@ const runRegressionTests = async () => {
   console.log('\n--- Test 2.29: Price Calculation Regression ---');
   
   try {
-    const patient = await createTestPatient('PriceReg');
     const cabinet = await createTestCabinet('PriceReg');
+    const patient = await createTestPatient('PriceReg', cabinet.id);
     
     const planResponse = await axios.post(`${BASE_URL}/plan-trataments`, {
       data: {
@@ -677,7 +726,7 @@ const runRegressionTests = async () => {
           { tip_procedura: 'Extractie', numar_dinte: '1.2', pret: 50.25 }
         ]
       }
-    });
+    }, getAuthConfig());
     
     const expectedTotal = 150.75;
     const actualTotal = planResponse.data.data.attributes.pret_total;
@@ -690,9 +739,9 @@ const runRegressionTests = async () => {
       failed++;
     }
     
-    await axios.delete(`${BASE_URL}/plan-trataments/${planResponse.data.data.id}`);
-    await axios.delete(`${BASE_URL}/pacients/${patient.id}`);
-    await axios.delete(`${BASE_URL}/cabinets/${cabinet.id}`);
+    await axios.delete(`${BASE_URL}/plan-trataments/${planResponse.data.data.id}`, getAuthConfig());
+    await axios.delete(`${BASE_URL}/pacients/${patient.id}`, getAuthConfig());
+    await axios.delete(`${BASE_URL}/cabinets/${cabinet.id}`, getAuthConfig());
   } catch (error) {
     console.log('✗ Price calculation regression:', error.message);
     failed++;
@@ -702,8 +751,8 @@ const runRegressionTests = async () => {
   console.log('\n--- Test 2.30: Conflict Detection Regression ---');
   
   try {
-    const patient = await createTestPatient('ConflictReg');
     const cabinet = await createTestCabinet('ConflictReg');
+    const patient = await createTestPatient('ConflictReg', cabinet.id);
     
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + 15);
@@ -742,9 +791,9 @@ const runRegressionTests = async () => {
       }
     }
     
-    await axios.delete(`${BASE_URL}/vizitas/${visit1.data.data.id}`);
-    await axios.delete(`${BASE_URL}/pacients/${patient.id}`);
-    await axios.delete(`${BASE_URL}/cabinets/${cabinet.id}`);
+    await axios.delete(`${BASE_URL}/vizitas/${visit1.data.data.id}`, getAuthConfig());
+    await axios.delete(`${BASE_URL}/pacients/${patient.id}`, getAuthConfig());
+    await axios.delete(`${BASE_URL}/cabinets/${cabinet.id}`, getAuthConfig());
   } catch (error) {
     console.log('✗ Conflict detection regression:', error.message);
     failed++;
@@ -777,7 +826,7 @@ const runErrorHandlingTests = async () => {
         nume: 'Test',
         // Missing required fields
       }
-    });
+    }, getAuthConfig());
     console.log('✗ 400 Bad Request - Invalid input accepted');
     failed++;
   } catch (error) {
@@ -792,7 +841,7 @@ const runErrorHandlingTests = async () => {
 
   // 404 Not Found
   try {
-    await axios.get(`${BASE_URL}/pacients/999999`);
+    await axios.get(`${BASE_URL}/pacients/999999`, getAuthConfig());
     console.log('✗ 404 Not Found - Non-existent resource returned data');
     failed++;
   } catch (error) {
@@ -818,24 +867,24 @@ const runErrorHandlingTests = async () => {
       data: {
         nume: 'Duplicate',
         prenume: 'Test',
-        CNP: cnp,
+        cnp: cnp,
         data_nasterii: '1990-01-01',
         telefon: '+40700111222',
         email: 'dup1@test.ro'
       }
-    });
+    }, getAuthConfig());
     
     try {
       await axios.post(`${BASE_URL}/pacients`, {
         data: {
           nume: 'Duplicate2',
           prenume: 'Test',
-          CNP: cnp,
+          cnp: cnp,
           data_nasterii: '1990-01-01',
           telefon: '+40700111223',
           email: 'dup2@test.ro'
         }
-      });
+      }, getAuthConfig());
       console.log('✗ 409 Conflict - Duplicate CNP accepted');
       failed++;
     } catch (error) {
@@ -869,7 +918,7 @@ const runErrorHandlingTests = async () => {
         telefon: 'not-a-phone', // Invalid: wrong format
         email: 'not-an-email' // Invalid: wrong format
       }
-    });
+    }, getAuthConfig());
     console.log('✗ Multiple validation errors - Invalid data accepted');
     failed++;
   } catch (error) {
@@ -903,6 +952,13 @@ async function checkStrapiHealth() {
     try {
       const response = await axios.get(`${STRAPI_URL}/_health`, { timeout: 5000 });
       if (response.status === 200 || response.status === 204) {
+        // After health check, authenticate
+        if (attempts === 0) {
+          const authenticated = await loginAndGetToken();
+          if (!authenticated) {
+            return false;
+          }
+        }
         return true;
       }
     } catch (error) {
@@ -913,7 +969,11 @@ async function checkStrapiHealth() {
       } else {
         // Strapi might be running but _health endpoint doesn't exist
         try {
-          await axios.get('http://localhost:1337/api/pacients', { timeout: 5000 });
+          // Try to authenticate first
+          if (attempts === 0) {
+            await loginAndGetToken();
+          }
+          await axios.get('http://localhost:1337/api/pacients', getAuthConfig());
           return true;
         } catch {
           attempts++;
@@ -926,17 +986,24 @@ async function checkStrapiHealth() {
 }
 
 const runAllTests = async () => {
-  console.log('⏳ Checking if Strapi is running...');
+  // Initialize Strapi lifecycle management
+  const lifecycle = new StrapiLifecycle();
   
-  const isHealthy = await checkStrapiHealth();
-  
-  if (!isHealthy) {
-    console.log('✗ Strapi is not responding after 3 attempts');
-    console.log('   Test runner should have started it.\n');
-    process.exit(1);
-  }
-  
-  console.log('✓ Strapi is running\n');
+  try {
+    // Ensure Strapi is running (will start if needed)
+    await lifecycle.ensureStrapiRunning();
+    
+    console.log('⏳ Checking if Strapi is running...');
+    
+    const isHealthy = await checkStrapiHealth();
+    
+    if (!isHealthy) {
+      console.log('✗ Strapi is not responding after 3 attempts\n');
+      await lifecycle.cleanup();
+      process.exit(1);
+    }
+    
+    console.log('✓ Strapi is running\n');
 
   const results = {
     priceList: await runPriceListTests(),
@@ -951,47 +1018,41 @@ const runAllTests = async () => {
   
   for (const visit of testData.visits) {
     try {
-      await axios.delete(`${BASE_URL}/vizitas/${visit.id}`);
+      await axios.delete(`${BASE_URL}/vizitas/${visit.id}`, getAuthConfig());
       console.log(`Deleted visit ${visit.id}`);
     } catch (e) {}
   }
   
   for (const plan of testData.treatmentPlans) {
     try {
-      await axios.delete(`${BASE_URL}/plan-trataments/${plan.id}`);
+      await axios.delete(`${BASE_URL}/plan-trataments/${plan.id}`, getAuthConfig());
       console.log(`Deleted plan ${plan.id}`);
     } catch (e) {}
   }
   
   for (const price of testData.priceLists) {
     try {
-      await axios.delete(`${BASE_URL}/price-lists/${price.id}`);
+      await axios.delete(`${BASE_URL}/price-lists/${price.id}`, getAuthConfig());
       console.log(`Deleted price ${price.id}`);
     } catch (e) {}
   }
   
   for (const patient of testData.patients) {
     try {
-      await axios.delete(`${BASE_URL}/pacients/${patient.id}`);
+      await axios.delete(`${BASE_URL}/pacients/${patient.id}`, getAuthConfig());
       console.log(`Deleted patient ${patient.id}`);
     } catch (e) {}
   }
   
   for (const cabinet of testData.cabinets) {
     try {
-      await axios.delete(`${BASE_URL}/cabinets/${cabinet.id}`);
+      await axios.delete(`${BASE_URL}/cabinets/${cabinet.id}`, getAuthConfig());
       console.log(`Deleted cabinet ${cabinet.id}`);
     } catch (e) {}
   }
 
-  // Cleanup all test data before Strapi stops
-  try {
-    console.log('\n🧹 Cleaning up all test data before exit...');
-    await axios.post(`${BASE_URL.replace('/api','')}/cleanup-database`, {}, { timeout: 10000 });
-    console.log('✅ Cleanup complete.');
-  } catch (cleanupError) {
-    console.log(`❌ Cleanup failed: ${cleanupError.message}`);
-  }
+  // Cleanup already done above - no need for additional cleanup
+  console.log('\n✅ Cleanup complete.');
 
   // Print summary
   console.log('\n═══════════════════════════════════════════════════════════');
@@ -1033,11 +1094,20 @@ const runAllTests = async () => {
   console.log(`  Pass Rate:    ${overallPassRate}%`);
   console.log('═══════════════════════════════════════════════════════════\n');
   
+  // Cleanup Strapi lifecycle
+  await lifecycle.cleanup();
+  
   if (totalFailed === 0) {
     console.log('✓ All tests passed!\n');
     process.exit(0);
   } else {
     console.log('✗ Some tests failed\n');
+    process.exit(1);
+  }
+  
+  } catch (fatalError) {
+    console.error('✗ Fatal error in test execution:', fatalError);
+    await lifecycle.cleanup();
     process.exit(1);
   }
 };
@@ -1047,3 +1117,7 @@ runAllTests().catch(error => {
   console.error('Fatal error:', error);
   process.exit(1);
 });
+
+
+
+

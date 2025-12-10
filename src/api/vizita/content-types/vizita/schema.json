@@ -13,12 +13,12 @@
   "attributes": {
     "cabinet": {
       "type": "relation",
-      "relation": "oneToOne",
+      "relation": "manyToOne",
       "target": "api::cabinet.cabinet"
     },
     "pacient": {
       "type": "relation",
-      "relation": "oneToOne",
+      "relation": "manyToOne",
       "target": "api::pacient.pacient"
     },
     "data_programare": {

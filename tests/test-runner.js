@@ -178,11 +178,65 @@ async function runTestFile(testFile) {
 }
 
 /**
+ * Run a workflow script with timeout
+ */
+async function runWorkflowScript(scriptName, description, timeoutMs = 300000) {
+  return new Promise((resolve, reject) => {
+    console.log(`${colors.cyan}\n▶ ${description}${colors.reset}`);
+    
+    const scriptPath = path.join(__dirname, scriptName);
+    const child = spawn('node', [scriptPath], {
+      stdio: 'inherit',
+      env: { ...process.env, STRAPI_URL: CONFIG.STRAPI_URL }
+    });
+    
+    // Set timeout to kill process if it hangs
+    const timeout = setTimeout(() => {
+      console.log(`${colors.red}\n⚠ Script timeout after ${timeoutMs/1000}s, killing process...${colors.reset}`);
+      child.kill('SIGTERM');
+      setTimeout(() => child.kill('SIGKILL'), 5000); // Force kill after 5s
+      resolve(124); // Timeout exit code
+    }, timeoutMs);
+    
+    child.on('close', (code) => {
+      clearTimeout(timeout);
+      if (code === 0) {
+        console.log(`${colors.green}✓ ${description} completed${colors.reset}`);
+        resolve(code);
+      } else {
+        console.log(`${colors.yellow}⚠ ${description} exited with code ${code}${colors.reset}`);
+        resolve(code);
+      }
+    });
+    
+    child.on('error', (error) => {
+      clearTimeout(timeout);
+      console.log(`${colors.red}✗ Error: ${error.message}${colors.reset}`);
+      reject(error);
+    });
+  });
+}
+
+/**
  * Main test execution
  */
 async function main() {
+  // Check for workflow mode and custom parameters
+  const args = process.argv.slice(2);
+  const workflowMode = args.includes('--workflow') || args.includes('full_functionality');
+  const cleanupMode = args.includes('cleanup');
+  const productionMode = args.includes('production');
+  
   console.log(`${colors.cyan}╔════════════════════════════════════════════════════════════╗${colors.reset}`);
-  console.log(`${colors.cyan}║          Dental Backend - Integrated Test Runner          ║${colors.reset}`);
+  if (cleanupMode) {
+    console.log(`${colors.cyan}║              DATABASE CLEANUP MODE                        ║${colors.reset}`);
+  } else if (productionMode) {
+    console.log(`${colors.cyan}║         PRODUCTION DATA GENERATION MODE                   ║${colors.reset}`);
+  } else if (workflowMode) {
+    console.log(`${colors.cyan}║       FULL PRODUCTION WORKFLOW - TEST RUNNER              ║${colors.reset}`);
+  } else {
+    console.log(`${colors.cyan}║          Dental Backend - Integrated Test Runner          ║${colors.reset}`);
+  }
   console.log(`${colors.cyan}╚════════════════════════════════════════════════════════════╝${colors.reset}\n`);
 
   const testResults = {
@@ -230,7 +284,69 @@ async function main() {
     
     console.log(`${colors.green}✓ Strapi is ready for testing${colors.reset}\n`);
     
-    // Step 3: Run all test files
+    // CLEANUP MODE: Run cleanup script and exit
+    if (cleanupMode) {
+      const exitCode = await runWorkflowScript('cleanup-database.js', 'Database Cleanup', 300000);
+      testResults.passed = exitCode === 0 ? 1 : 0;
+      testResults.failed = exitCode === 0 ? 0 : 1;
+      return;
+    }
+    
+    // PRODUCTION MODE: Run production data generation and exit
+    if (productionMode) {
+      const exitCode = await runWorkflowScript('simulation-production.js', 'Production Data Generation (100k patients, 10 cabinets)', 3600000); // 1 hour timeout
+      testResults.passed = exitCode === 0 ? 1 : 0;
+      testResults.failed = exitCode === 0 ? 0 : 1;
+      return;
+    }
+    
+    // WORKFLOW MODE: Full production data generation
+    if (workflowMode) {
+      console.log(`${colors.cyan}═══════════════════════════════════════════════════════════${colors.reset}`);
+      console.log(`${colors.cyan}  WORKFLOW: Verify → Cleanup → Generate → Verify${colors.reset}`);
+      console.log(`${colors.cyan}═══════════════════════════════════════════════════════════${colors.reset}\n`);
+      
+      // Step 1: Initial verification
+      let code = await runWorkflowScript('verify-database.js', 'STEP 1: Initial Database Verification', 60000);
+      const needsCleanup = code !== 0; // Non-zero means database has data
+      
+      // Step 2: Cleanup if needed
+      if (needsCleanup) {
+        console.log(`${colors.yellow}\n⚠ Database contains data, cleanup required${colors.reset}`);
+        await runWorkflowScript('cleanup-database.js', 'STEP 2: Database Cleanup', 300000);
+      } else {
+        console.log(`${colors.green}\n✓ Database is empty, skipping cleanup${colors.reset}`);
+      }
+      
+      // Step 3: Generate production data (1 hour timeout for 100k patients)
+      await runWorkflowScript('simulation-production.js', 'STEP 3: Generate Production Data (100k patients, 10 cabinets)', 3600000);
+      
+      // Step 4: Final verification
+      code = await runWorkflowScript('verify-database.js', 'STEP 4: Final Database Verification', 60000);
+      
+      if (code === 0) {
+        console.log(`\n${colors.green}╔════════════════════════════════════════════════════════════╗${colors.reset}`);
+        console.log(`${colors.green}║              ✓ WORKFLOW COMPLETED! 🎉                      ║${colors.reset}`);
+        console.log(`${colors.green}╚════════════════════════════════════════════════════════════╝${colors.reset}\n`);
+        console.log(`${colors.cyan}✅ Acceptance Criteria Met:${colors.reset}`);
+        console.log(`${colors.green}   ✓ 10 cabinets created${colors.reset}`);
+        console.log(`${colors.green}   ✓ 1 administrator per cabinet${colors.reset}`);
+        console.log(`${colors.green}   ✓ 3 employees per cabinet${colors.reset}`);
+        console.log(`${colors.green}   ✓ 10,000 patients per cabinet${colors.reset}`);
+        console.log(`${colors.green}   ✓ Appointments for next 2 months${colors.reset}\n`);
+        testResults.passed = 1;
+      } else {
+        console.log(`\n${colors.red}╔════════════════════════════════════════════════════════════╗${colors.reset}`);
+        console.log(`${colors.red}║              ⚠ WORKFLOW INCOMPLETE                         ║${colors.reset}`);
+        console.log(`${colors.red}╚════════════════════════════════════════════════════════════╝${colors.reset}\n`);
+        testResults.failed = 1;
+      }
+      
+      return; // Exit workflow mode
+    }
+    
+    // NORMAL MODE: Step 3: Run test files
+    // Testing Phase 1 (Patient), Phase 2 (Treatment), Phase 3 (Visit), and Phase 4 (Advanced)
     const testFiles = [
       'phase-1-patient.test.js',
       'phase-2-treatment.test.js',

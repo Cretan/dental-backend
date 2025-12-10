@@ -27,7 +27,7 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
     const { data } = ctx.request.body;
     
     // Validation: CNP (Romanian Personal Identification Number)
-    if (!data.CNP || !validateCNP(data.CNP)) {
+    if (!data.cnp || !validateCNP(data.cnp)) {
       return ctx.badRequest('CNP invalid. Must be 13 digits with valid checksum.');
     }
     
@@ -85,7 +85,7 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
     }
     
     // Validate CNP if provided (can't change, but validate format)
-    if (data.CNP && !validateCNP(data.CNP)) {
+    if (data.cnp && !validateCNP(data.cnp)) {
       return ctx.badRequest('CNP invalid format');
     }
     
@@ -118,7 +118,7 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
           $or: [
             { nume: { $containsi: searchTerm } },
             { prenume: { $containsi: searchTerm } },
-            { CNP: { $containsi: searchTerm } },
+            { cnp: { $containsi: searchTerm } },
             { telefon: { $containsi: searchTerm } },
             { email: { $containsi: searchTerm } },
           ],

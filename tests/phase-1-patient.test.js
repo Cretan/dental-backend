@@ -2,18 +2,50 @@
  * Phase 1 Testing Script
  * Tests patient validation, search, and statistics endpoints
  * Handles cases where Strapi might be offline or not responding
+ * 
+ * ✨ NOW SUPPORTS INDEPENDENT EXECUTION ✨
+ * Run directly: node phase-1-patient.test.js
  */
 
 const axios = require('axios');
 const { generateValidCNP } = require('./cnp-generator');
 const { generateRomanianName } = require('./romanian-names');
+const StrapiLifecycle = require('./strapi-lifecycle');
 
 const STRAPI_URL = 'http://localhost:1337';
 const API_BASE = `${STRAPI_URL}/api/pacients`;
+const CABINET_API_BASE = `${STRAPI_URL}/api/cabinets`;
 const TIMEOUT = 5000; // 5 second timeout
 const MAX_RETRIES = 3;
-const API_TOKEN = '11c77e75e59c95a7487a442d6df8c54727e674a2cb233ea37dc5ed3c51cfcf6588896d1b93161f658266768aa31240696f38a36d3ffa6989256b7b679c8bf7751b56dda969edb72e3d129ede081b914d789b34659d9c9fc3647111fd9d75ea3bbe3ee51a3aef3f0948549d37bed73c5569f00b277ab036af0aa1cafa42140379';
-const AUTH_HEADERS = { headers: { Authorization: `Bearer ${API_TOKEN}` } };
+
+// Authentication credentials for testing
+const TEST_USER = {
+  identifier: 'test@test.com',
+  password: 'Test123!@#'
+};
+
+let JWT_TOKEN = null;
+let TEST_USER_ID = null; // Authenticated user ID for added_by field
+let TEST_CABINET_ID = null; // Shared test cabinet for all patients
+
+// Default config
+const defaultConfig = {
+  timeout: TIMEOUT,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+};
+
+// Function to get auth config with JWT
+function getAuthConfig() {
+  return {
+    ...defaultConfig,
+    headers: {
+      ...defaultConfig.headers,
+      'Authorization': `Bearer ${JWT_TOKEN}`
+    }
+  };
+}
 
 // Colors for console output
 const colors = {
@@ -30,6 +62,103 @@ function log(message, color = 'reset') {
 }
 
 /**
+ * Login and get JWT token and user ID
+ */
+async function loginAndGetToken() {
+  log('\n🔐 Authenticating test user...', 'cyan');
+  
+  // Wait a bit for Strapi to be fully ready
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  const MAX_AUTH_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_AUTH_RETRIES; attempt++) {
+    try {
+      const response = await axios.post(`${STRAPI_URL}/api/auth/local`, TEST_USER, {
+        timeout: TIMEOUT
+      });
+      
+      if (response.data && response.data.jwt) {
+        JWT_TOKEN = response.data.jwt;
+        TEST_USER_ID = response.data.user?.id || response.data.user?.documentId;
+        log(`✅ Authentication successful (User ID: ${TEST_USER_ID})`, 'green');
+        return true;
+      }
+      
+      log(`❌ No JWT token received (attempt ${attempt}/${MAX_AUTH_RETRIES})`, 'yellow');
+    } catch (error) {
+      log(`❌ Authentication failed (attempt ${attempt}/${MAX_AUTH_RETRIES}): ${error.message}`, 'yellow');
+      if (error.response) {
+        log(`   Response: ${JSON.stringify(error.response.data)}`, 'gray');
+      }
+      
+      if (attempt < MAX_AUTH_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+  }
+  
+  log('❌ Authentication failed after all retries', 'red');
+  return false;
+}
+
+/**
+ * Create a test cabinet for patients
+ */
+async function createTestCabinet() {
+  log('\n🏥 Creating test cabinet...', 'cyan');
+  
+  try {
+    const timestamp = Date.now();
+    const uniquePhone = `+40${700000000 + Math.floor(Math.random() * 100000000)}`;
+    const cabinetData = {
+      data: {
+        nume_cabinet: `Test Cabinet ${timestamp}`,
+        adresa: 'Str. Test nr. 1',
+        telefon: uniquePhone,
+        email: `cabinet${timestamp}@test.ro`,
+        program_functionare: {
+          luni: '08:00-18:00',
+          marti: '08:00-18:00',
+          miercuri: '08:00-18:00',
+          joi: '08:00-18:00',
+          vineri: '08:00-18:00'
+        },
+        publishedAt: new Date().toISOString()
+      }
+    };
+    
+    const response = await axios.post(CABINET_API_BASE, cabinetData, getAuthConfig());
+    
+    if (response.status === 200 || response.status === 201) {
+      TEST_CABINET_ID = response.data.data.id;
+      log(`✅ Test cabinet created (ID: ${TEST_CABINET_ID})`, 'green');
+      return true;
+    }
+  } catch (error) {
+    log(`❌ Failed to create cabinet: ${error.message}`, 'red');
+    if (error.response) {
+      log(`   Response: ${JSON.stringify(error.response.data)}`, 'gray');
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Delete test cabinet
+ */
+async function deleteTestCabinet() {
+  if (!TEST_CABINET_ID) return;
+  
+  try {
+    await axios.delete(`${CABINET_API_BASE}/${TEST_CABINET_ID}`, getAuthConfig());
+    log(`✅ Test cabinet deleted (ID: ${TEST_CABINET_ID})`, 'green');
+  } catch (error) {
+    log(`⚠️  Failed to delete cabinet: ${error.message}`, 'yellow');
+  }
+}
+
+/**
  * Check if Strapi is running and responsive
  */
 async function checkStrapiHealth() {
@@ -43,6 +172,15 @@ async function checkStrapiHealth() {
       });
       
       log(`✅ Strapi is responding (attempt ${attempt}/${MAX_RETRIES})`, 'green');
+      
+      // After health check, authenticate
+      if (attempt === 1) {
+        const authenticated = await loginAndGetToken();
+        if (!authenticated) {
+          return false;
+        }
+      }
+      
       return true;
     } catch (error) {
       if (attempt < MAX_RETRIES) {
@@ -87,16 +225,14 @@ async function testValidPatientCreation() {
         prenume: name.firstName,
         cnp: validCNP,
         data_nasterii: `${birthYear}-${birthMonth.toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`,
+        publishedAt: new Date().toISOString(),
         telefon: `+4070011${timestamp}`,
         email: `${name.firstName.toLowerCase()}.${name.lastName.toLowerCase()}.${timestamp}@test.ro`,
-        published_at: new Date().toISOString()
+        cabinet: TEST_CABINET_ID // Link to test cabinet
       }
     };
     
-    const response = await axios.post(API_BASE, validPatient, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const response = await axios.post(API_BASE, validPatient, getAuthConfig());
     
     if (response.status === 200 || response.status === 201) {
       log('✅ Patient created successfully', 'green');
@@ -131,14 +267,13 @@ async function testInvalidCNP() {
         prenume: name.firstName,
         cnp: 'invalid123',
         data_nasterii: '1990-01-01',
-        telefon: '+40700000000',
-        published_at: new Date().toISOString()
+        publishedAt: new Date().toISOString(),
+        telefon: '+40700000000'
       }
     };
     
     const response = await axios.post(API_BASE, invalidPatient, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true // Don't throw on 4xx
     });
     
@@ -174,12 +309,11 @@ async function testInvalidPhone() {
         prenume: name.firstName,
         cnp: '1900101012349',
         data_nasterii: '1990-01-01',
+        publishedAt: new Date().toISOString(),
         telefon: '123', // Invalid phone
-        published_at: new Date().toISOString()
       }
     };    const response = await axios.post(API_BASE, invalidPatient, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -209,8 +343,8 @@ async function testSearchEndpoint() {
   
   try {
     const response = await axios.get(`${API_BASE}/search`, {
-      params: { query: 'ionescu' },
-      timeout: TIMEOUT
+      ...getAuthConfig(),
+      params: { query: 'ionescu' }
     });
     
     if (response.status === 200) {
@@ -271,14 +405,12 @@ async function cleanupTestPatient(documentId) {
 
   try {
     await axios.delete(`${API_BASE}/${documentId}`, {
-      timeout: TIMEOUT,
-      ...AUTH_HEADERS
+      ...getAuthConfig()
     });
     // Verificăm dacă pacientul a fost șters
     try {
       await axios.get(`${API_BASE}/${documentId}`, {
-        timeout: TIMEOUT,
-        ...AUTH_HEADERS
+        ...getAuthConfig()
       });
       log('❌ Patient was NOT deleted! Test failed.', 'red');
       process.exit(1);
@@ -315,12 +447,11 @@ async function testCNPWrongLength(type) {
         prenume: name.firstName,
         cnp: cnpValue,
         data_nasterii: '1990-01-01',
-        telefon: '+40700000000',
-        published_at: new Date().toISOString()
+        publishedAt: new Date().toISOString(),
+        telefon: '+40700000000'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -350,13 +481,12 @@ async function testCNPNonNumeric() {
         nume: name.lastName,
         prenume: name.firstName,
         cnp: '12345ABC67890',
-        published_at: new Date().toISOString()
         data_nasterii: '1990-01-01',
+        publishedAt: new Date().toISOString(),
         telefon: '+40700000000'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -385,13 +515,13 @@ async function testCNPInvalidFirstDigit() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '0900101012345',
+        cnp: '0900101012345',
         data_nasterii: '1990-01-01',
+        publishedAt: new Date().toISOString(),
         telefon: '+40700000000'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -420,13 +550,13 @@ async function testCNPAllZeros() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '0000000000000',
+        cnp: '0000000000000',
         data_nasterii: '1990-01-01',
+        publishedAt: new Date().toISOString(),
         telefon: '+40700000000'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -462,13 +592,13 @@ async function testPhoneWithSpaces() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: cnp,
+        cnp: cnp,
         data_nasterii: '1991-06-10',
+        publishedAt: new Date().toISOString(),
         telefon: '+40 700 123 456'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -501,13 +631,13 @@ async function testPhoneWrongCountryCode() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '1910610012345',
+        cnp: '1910610012345',
         data_nasterii: '1991-06-10',
+        publishedAt: new Date().toISOString(),
         telefon: '+1234567890'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -536,13 +666,13 @@ async function testPhoneWrongLength() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '1910610012345',
+        cnp: '1910610012345',
         data_nasterii: '1991-06-10',
+        publishedAt: new Date().toISOString(),
         telefon: '+4070012'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -571,13 +701,13 @@ async function testPhoneLandline() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '1910610012345',
+        cnp: '1910610012345',
         data_nasterii: '1991-06-10',
+        publishedAt: new Date().toISOString(),
         telefon: '+40211234567' // Bucharest landline
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -610,14 +740,14 @@ async function testEmailMissingAt() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '1910610012345',
+        cnp: '1910610012345',
         data_nasterii: '1991-06-10',
+        publishedAt: new Date().toISOString(),
         telefon: '+40700000000',
         email: 'invalidemail.com'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -646,14 +776,14 @@ async function testEmailMissingDomain() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '1910610012345',
+        cnp: '1910610012345',
         data_nasterii: '1991-06-10',
+        publishedAt: new Date().toISOString(),
         telefon: '+40700000000',
         email: 'test@'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -682,14 +812,14 @@ async function testEmailInvalidChars() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '1910610012345',
+        cnp: '1910610012345',
         data_nasterii: '1991-06-10',
+        publishedAt: new Date().toISOString(),
         telefon: '+40700000000',
         email: 'test<>@example.com'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -719,14 +849,14 @@ async function testEmailVeryLong() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '1910610012345',
+        cnp: '1910610012345',
         data_nasterii: '1991-06-10',
+        publishedAt: new Date().toISOString(),
         telefon: '+40700000000',
         email: longEmail
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -767,13 +897,13 @@ async function testBirthDateFuture() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '1910610012345',
+        cnp: '1910610012345',
         data_nasterii: futureDateStr,
+        publishedAt: new Date().toISOString(),
         telefon: '+40700000000'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -806,13 +936,13 @@ async function testAgeOver120() {
       data: {
         nume: name.lastName,
         prenume: name.firstName,
-        CNP: '1010101012345',
+        cnp: '1010101012345',
         data_nasterii: oldDateStr,
+        publishedAt: new Date().toISOString(),
         telefon: '+40700000000'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -852,30 +982,39 @@ async function testDuplicateCNP() {
     // Create first patient
     const first = await axios.post(API_BASE, {
       data: {
-        nume: name.lastName,
-        prenume: name.firstName,
-        cnp: validCNP,
-        data_nasterii: `${birthYear}-${birthMonth.toString().padStart(2, '0')}-${birthDay.toString().padStart(2, '0')}`,
+        nume: name1.lastName,
+        prenume: name1.firstName,
+        cnp: cnp,
+        data_nasterii: '1992-03-20',
+        publishedAt: new Date().toISOString(),
         telefon: `+4070011${timestamp}`,
-        email: `${name.firstName.toLowerCase()}.${name.lastName.toLowerCase()}.${timestamp}@test.ro`,
-        published_at: new Date().toISOString()
+        email: `${name1.firstName.toLowerCase()}.${name1.lastName.toLowerCase()}.${timestamp}@test.ro`,
+        cabinet: TEST_CABINET_ID
+      }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' }
+      ...getAuthConfig(),
+      validateStatus: () => true // Don't throw on error
     });
+    
+    // Check if first patient was created successfully
+    if (first.status !== 200 && first.status !== 201) {
+      log(`❌ Failed to create first patient: ${first.data.error?.message || 'Unknown error'}`, 'red');
+      return false;
+    }
     
     // Try to create second patient with same CNP
     const second = await axios.post(API_BASE, {
       data: {
         nume: name2.lastName,
         prenume: name2.firstName,
-        CNP: cnp, // Same CNP
+        cnp: cnp, // Same CNP
         data_nasterii: '1992-03-20',
-        telefon: `+4070021${timestamp}`
+        publishedAt: new Date().toISOString(),
+        telefon: `+4070021${timestamp}`,
+        cabinet: TEST_CABINET_ID
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -915,8 +1054,7 @@ async function testMissingRequiredFields() {
         // Missing: prenume, CNP, data_nasterii, telefon
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' },
+      ...getAuthConfig(),
       validateStatus: () => true
     });
     
@@ -950,8 +1088,7 @@ async function testUpdatePatient(documentId) {
         prenume: 'IonUpdated'
       }
     }, {
-      timeout: TIMEOUT,
-      headers: { 'Content-Type': 'application/json' }
+      ...getAuthConfig()
     });
     
     if (response.status === 200) {
@@ -980,7 +1117,7 @@ async function testGetPatientById(documentId) {
   
   try {
     const response = await axios.get(`${API_BASE}/${documentId}`, {
-      timeout: TIMEOUT
+      ...getAuthConfig()
     });
     
     if (response.status === 200 && response.data.data) {
@@ -1004,11 +1141,11 @@ async function testPagination() {
   
   try {
     const response = await axios.get(API_BASE, {
+      ...getAuthConfig(),
       params: {
         'pagination[page]': 1,
         'pagination[pageSize]': 10
-      },
-      timeout: TIMEOUT
+      }
     });
     
     if (response.status === 200 && response.data.data) {
@@ -1037,8 +1174,8 @@ async function testSearchByPhone() {
   
   try {
     const response = await axios.get(`${API_BASE}/search`, {
-      params: { query: '0700' },
-      timeout: TIMEOUT
+      ...getAuthConfig(),
+      params: { query: '0700' }
     });
     
     if (response.status === 200) {
@@ -1063,8 +1200,8 @@ async function testSearchByEmail() {
   
   try {
     const response = await axios.get(`${API_BASE}/search`, {
-      params: { query: 'test.ro' },
-      timeout: TIMEOUT
+      ...getAuthConfig(),
+      params: { query: 'test.ro' }
     });
     
     if (response.status === 200) {
@@ -1089,8 +1226,8 @@ async function testSearchSpecialChars() {
   
   try {
     const response = await axios.get(`${API_BASE}/search`, {
+      ...getAuthConfig(),
       params: { query: '<script>alert("test")</script>' },
-      timeout: TIMEOUT,
       validateStatus: () => true
     });
     
@@ -1137,16 +1274,37 @@ async function runTests() {
   log('║     PHASE 1 IMPLEMENTATION TEST SUITE          ║', 'cyan');
   log('╚════════════════════════════════════════════════╝', 'cyan');
   
-  // Check if Strapi is running
-  const strapiHealthy = await checkStrapiHealth();
+  // Initialize Strapi lifecycle management
+  const lifecycle = new StrapiLifecycle();
   
-  if (!strapiHealthy) {
-    log('\n❌ CANNOT RUN TESTS - Strapi is not responding', 'red');
-    log('\nTo start Strapi, run:', 'yellow');
-    log('  cd d:\\treatmentPlan\\dental-backend', 'gray');
-    log('  npm run develop', 'gray');
-    process.exit(1);
-  }
+  try {
+    // Ensure Strapi is running (will start if needed)
+    await lifecycle.ensureStrapiRunning();
+    
+    // Authenticate
+    const authenticated = await loginAndGetToken();
+    if (!authenticated) {
+      log('\n❌ CANNOT RUN TESTS - Authentication failed', 'red');
+      await lifecycle.cleanup();
+      process.exit(1);
+    }
+    
+    // Check if Strapi is running
+    const strapiHealthy = await checkStrapiHealth();
+    
+    if (!strapiHealthy) {
+      log('\n❌ CANNOT RUN TESTS - Strapi is not responding', 'red');
+      await lifecycle.cleanup();
+      process.exit(1);
+    }
+    
+    // Create test cabinet for all patients
+    const cabinetCreated = await createTestCabinet();
+    if (!cabinetCreated) {
+      log('\n❌ CANNOT RUN TESTS - Failed to create test cabinet', 'red');
+      await lifecycle.cleanup();
+      process.exit(1);
+    }
   
   // Run all tests
   let createdPatientId = null;
@@ -1317,10 +1475,25 @@ async function runTests() {
   
   // Cleanup
 
+  
   // Cleanup all test data before Strapi stops
   try {
     log('\n🧹 Cleaning up all test data before exit...', 'yellow');
-    await axios.post(`${STRAPI_URL}/cleanup-database`, {}, { timeout: TIMEOUT });
+    // Delete all patients created during tests
+    const allPatients = await axios.get(API_BASE, { ...getAuthConfig() });
+    if (allPatients.data.data && allPatients.data.data.length > 0) {
+      for (const patient of allPatients.data.data) {
+        try {
+          await axios.delete(`${API_BASE}/${patient.documentId}`, { ...getAuthConfig() });
+        } catch (delErr) {
+          // Ignore individual deletion errors
+        }
+      }
+    }
+    
+    // Delete test cabinet
+    await deleteTestCabinet();
+    
     log('✅ Cleanup complete.', 'green');
   } catch (cleanupError) {
     log(`❌ Cleanup failed: ${cleanupError.message}`, 'red');
@@ -1337,6 +1510,9 @@ async function runTests() {
   const passRate = ((results.passed / results.total) * 100).toFixed(1);
   log(`📊 Pass rate: ${passRate}%`, passRate === '100.0' ? 'green' : 'yellow');
   
+  // Cleanup Strapi lifecycle
+  await lifecycle.cleanup();
+  
   if (results.passed === results.total) {
     log('\n🎉 ALL TESTS PASSED! Phase 1 implementation is working correctly!', 'green');
     process.exit(0);
@@ -1344,9 +1520,13 @@ async function runTests() {
     log('\n⚠️  Some tests failed. Please review the errors above.', 'yellow');
     process.exit(1);
   }
-}
-
-// Handle unhandled rejections
+  
+  } catch (fatalError) {
+    log(`\n❌ Fatal error in test execution: ${fatalError.message}`, 'red');
+    await lifecycle.cleanup();
+    process.exit(1);
+  }
+}// Handle unhandled rejections
 process.on('unhandledRejection', (error) => {
   log(`\n❌ Unhandled error: ${error.message}`, 'red');
   process.exit(1);
@@ -1357,3 +1537,8 @@ runTests().catch((error) => {
   log(`\n❌ Fatal error: ${error.message}`, 'red');
   process.exit(1);
 });
+
+
+
+
+

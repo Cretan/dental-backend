@@ -18,7 +18,7 @@
     },
     "cabinet": {
       "type": "relation",
-      "relation": "oneToOne",
+      "relation": "manyToOne",
       "target": "api::cabinet.cabinet"
     },
     "data_creare": {
