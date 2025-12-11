@@ -97,6 +97,25 @@ async function loginAndGetToken() {
 }
 
 /**
+ * Check Strapi health before operations
+ */
+async function checkStrapiHealth() {
+  const MAX_RETRIES = 5;
+  for (let i = 0; i < MAX_RETRIES; i++) {
+    try {
+      await axios.get(`${STRAPI_URL}/_health`, { timeout: 5000 });
+      return true;
+    } catch (error) {
+      if (i < MAX_RETRIES - 1) {
+        log(`⏳ Waiting for Strapi to be ready... (${i + 1}/${MAX_RETRIES})`, 'yellow');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Count entities in database
  */
 async function countEntities() {
@@ -106,6 +125,7 @@ async function countEntities() {
     prices: 0,
     patients: 0,
     cabinets: 0,
+    users: 0,
     total: 0
   };
   
@@ -115,11 +135,13 @@ async function countEntities() {
       { key: 'plans', endpoint: 'plan-trataments' },
       { key: 'prices', endpoint: 'price-lists' },
       { key: 'patients', endpoint: 'pacients' },
-      { key: 'cabinets', endpoint: 'cabinets' }
+      { key: 'cabinets', endpoint: 'cabinets' },
+      { key: 'users', endpoint: 'users' }
     ];
     
     for (const { key, endpoint } of endpoints) {
-      const response = await axios.get(`${API_BASE}/${endpoint}?pagination[limit]=1`, getAuthConfig());
+      const url = endpoint === 'users' ? `${STRAPI_URL}/api/${endpoint}` : `${API_BASE}/${endpoint}`;
+      const response = await axios.get(`${url}?pagination[limit]=1`, getAuthConfig());
       const count = response.data.meta?.pagination?.total || 0;
       counts[key] = count;
       counts.total += count;
@@ -136,11 +158,12 @@ async function countEntities() {
  */
 function displayCounts(counts, label) {
   log(`\n${label}:`, 'cyan');
-  log(`  Visits: ${counts.visits}`, 'blue');
+  log(`  Cabinets: ${counts.cabinets}`, 'blue');
+  log(`  Users: ${counts.users}`, 'blue');
+  log(`  Patients: ${counts.patients}`, 'blue');
   log(`  Treatment Plans: ${counts.plans}`, 'blue');
   log(`  Price Lists: ${counts.prices}`, 'blue');
-  log(`  Patients: ${counts.patients}`, 'blue');
-  log(`  Cabinets: ${counts.cabinets}`, 'blue');
+  log(`  Visits: ${counts.visits}`, 'blue');
   log(`  Total: ${counts.total}`, 'bold');
 }
 
@@ -228,16 +251,14 @@ const medicalConditions = [
 ];
 
 const treatments = [
-  { tip: 'Detartraj', minPret: 150, maxPret: 300 },
+  { tip: 'AditieOs', minPret: 100, maxPret: 300 },
   { tip: 'Canal', minPret: 250, maxPret: 600 },
+  { tip: 'CoronitaAlbastra', minPret: 400, maxPret: 1000 },
+  { tip: 'CoronitaGalbena', minPret: 450, maxPret: 1200 },
+  { tip: 'CoronitaRoz', minPret: 500, maxPret: 1500 },
   { tip: 'Extractie', minPret: 100, maxPret: 400 },
-  { tip: 'Plomba', minPret: 150, maxPret: 350 },
-  { tip: 'Coronita', minPret: 500, maxPret: 1500 },
   { tip: 'Implant', minPret: 1500, maxPret: 4000 },
-  { tip: 'Punte', minPret: 1000, maxPret: 3000 },
-  { tip: 'Proteză', minPret: 800, maxPret: 5000 },
-  { tip: 'Albire', minPret: 300, maxPret: 800 },
-  { tip: 'Sigilare', minPret: 80, maxPret: 150 }
+  { tip: 'Punte', minPret: 1000, maxPret: 3000 }
 ];
 
 /**
@@ -347,10 +368,12 @@ async function createCabinets(cabinetCount, usersByCabinet) {
         throw new Error('No cabinet data in response');
       }
       
+      const cabinetId = cabinet.id || cabinet.documentId;
+      
       // Handle both documented (with attributes) and v5 flat structure
       const cabinetRecord = {
-        id: cabinet.id || cabinet.documentId,
-        documentId: cabinet.documentId,
+        id: cabinetId,
+        documentId: cabinet.documentId || cabinetId,
         attributes: cabinet.attributes || cabinet,
         nume_cabinet: cabinet.attributes?.nume_cabinet || cabinet.nume_cabinet,
         users: cabinetUsers
@@ -362,7 +385,7 @@ async function createCabinets(cabinetCount, usersByCabinet) {
       }
       
       cabinets.push(cabinetRecord);
-      log(`✓ ${cabinetRecord.nume_cabinet} (${cabinetInfo.city}) - ${admin?.name}`, 'green');
+      log(`✓ ${cabinetRecord.nume_cabinet} (${cabinetInfo.city}) - Admin: ${admin?.name}`, 'green');
     } catch (error) {
       const errorMsg = error.response?.data?.error?.message || error.message;
       log(`✗ Failed to create cabinet ${cabinetInfo.name}: ${errorMsg}`, 'red');
@@ -401,9 +424,12 @@ async function createPriceLists(cabinets) {
           }
         }, getAuthConfig());
         
-        cabinetPrices.push(response.data.data);
+        if (response.data?.data) {
+          cabinetPrices.push(response.data.data);
+        }
       } catch (error) {
-        // Skip errors
+        const errorMsg = error.response?.data?.error?.message || error.message;
+        log(`  ⚠ Failed to create price for ${treatment.tip}: ${errorMsg}`, 'yellow');
       }
     }
     
@@ -478,6 +504,11 @@ async function createPatient(cabinet, patientIndex) {
 async function createTreatmentPlans(patient, cabinet, priceList) {
   const plans = [];
   
+  // Skip if no price list available
+  if (!priceList || priceList.length === 0) {
+    return plans;
+  }
+  
   // 60% of patients have treatment plans
   if (Math.random() > 0.4) {
     const treatmentCount = Math.floor(Math.random() * 5) + 1; // 1-5 treatments
@@ -485,14 +516,21 @@ async function createTreatmentPlans(patient, cabinet, priceList) {
     
     for (let i = 0; i < treatmentCount; i++) {
       const price = randomElement(priceList);
+      
+      // Safely extract price data
+      const priceData = price.attributes || price;
+      if (!priceData || !priceData.tip_procedura) {
+        continue; // Skip invalid price entry
+      }
+      
       const tooth = `${Math.ceil(Math.random() * 4)}.${Math.ceil(Math.random() * 8)}`;
       
       tratamente.push({
-        tip_procedura: price.attributes.tip_procedura,
+        tip_procedura: priceData.tip_procedura,
         numar_dinte: tooth,
-        pret: price.attributes.pret_standard,
+        pret: priceData.pret_standard || 100,
         status_tratament: randomElement(['Planificat', 'InCurs', 'Finalizat']),
-        observatii: Math.random() > 0.7 ? `Observații pentru ${price.attributes.tip_procedura}` : null
+        observatii: Math.random() > 0.7 ? `Observații pentru ${priceData.tip_procedura}` : null
       });
     }
     
@@ -597,13 +635,31 @@ async function main() {
   log(`   Treatment plans: ~60% of patients\n`, 'blue');
   
   try {
-    // Check Strapi
-    log('Checking Strapi...', 'yellow');
-    await axios.get(`${STRAPI_URL}/_health`, { timeout: 5000 });
-    log('✓ Strapi is running\n', 'green');
+    // Check Strapi with retries
+    log('🏥 Checking Strapi health...', 'yellow');
+    let strapiReady = false;
+    for (let i = 0; i < 5; i++) {
+      try {
+        // Try both health endpoints
+        await axios.get(`${STRAPI_URL}/admin`, { timeout: 5000 });
+        strapiReady = true;
+        break;
+      } catch (error) {
+        if (i < 4) {
+          log(`⏳ Waiting for Strapi... (${i + 1}/5)`, 'yellow');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+      }
+    }
+    
+    if (!strapiReady) {
+      log('❌ Strapi is not responding. Please start Strapi first.', 'red');
+      process.exit(1);
+    }
+    log('✓ Strapi is running and healthy\n', 'green');
     
     // Authenticate
-    log('Authenticating...', 'yellow');
+    log('🔐 Authenticating...', 'yellow');
     const authenticated = await loginAndGetToken();
     if (!authenticated) {
       throw new Error('Authentication failed');
