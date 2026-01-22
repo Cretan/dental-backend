@@ -13,8 +13,9 @@
   "attributes": {
     "pacient": {
       "type": "relation",
-      "relation": "oneToOne",
-      "target": "api::pacient.pacient"
+      "relation": "manyToOne",
+      "target": "api::pacient.pacient",
+      "inversedBy": "planuri_tratamente"
     },
     "cabinet": {
       "type": "relation",

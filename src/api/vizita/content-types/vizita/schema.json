@@ -19,7 +19,8 @@
     "pacient": {
       "type": "relation",
       "relation": "manyToOne",
-      "target": "api::pacient.pacient"
+      "target": "api::pacient.pacient",
+      "inversedBy": "vizite"
     },
     "data_programare": {
       "type": "datetime",

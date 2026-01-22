@@ -50,6 +50,18 @@
       "target": "api::cabinet.cabinet",
       "inversedBy": "pacienti"
     },
+    "planuri_tratamente": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::plan-tratament.plan-tratament",
+      "mappedBy": "pacient"
+    },
+    "vizite": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::vizita.vizita",
+      "mappedBy": "pacient"
+    },
     "added_by": {
       "type": "relation",
       "relation": "oneToOne",

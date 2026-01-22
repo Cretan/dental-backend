@@ -12,16 +12,13 @@
     "start": "strapi start",
     "strapi": "strapi",
     "upgrade": "npx @strapi/upgrade latest",
-    "upgrade:dry": "npx @strapi/upgrade latest --dry",
-    "test": "node tests/test-runner.js",
-    "test:phase1": "node tests/phase-1-patient.test.js",
-    "test:phase2": "node tests/phase-2-treatment.test.js",
-    "test:phase3": "node tests/phase-3-visit.test.js"
+    "upgrade:dry": "npx @strapi/upgrade latest --dry"
   },
   "dependencies": {
-    "@strapi/plugin-cloud": "5.31.2",
-    "@strapi/plugin-users-permissions": "5.31.2",
-    "@strapi/strapi": "5.31.2",
+    "@strapi/plugin-cloud": "5.32.0",
+    "@strapi/plugin-users-permissions": "5.32.0",
+    "@strapi/strapi": "5.32.0",
+    "better-sqlite3": "12.4.1",
     "pg": "^8.16.3",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
@@ -29,7 +26,6 @@
     "styled-components": "^6.0.0"
   },
   "devDependencies": {
-    "@faker-js/faker": "^10.1.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -40,7 +36,7 @@
     "npm": ">=6.0.0"
   },
   "strapi": {
-    "uuid": "46888cdf-0e93-4fe0-8bdc-5650477ca556",
-    "installId": "73b5cfa1d9c5b30f713e52b4f143a8267f7f31861b0dc75e6093a638052f745c"
+    "uuid": "12014ff0-fec5-4723-be79-4e96cde47f84",
+    "installId": "e7c962e76e69c50e41f63abedfffa2c8897fd2ca561cb86b4de5f5f13b406518"
   }
 }

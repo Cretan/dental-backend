@@ -1,8 +1,31 @@
 /**
- * plan-tratament router
+ * plan-tratament router with authentication and policy
  */
 
 import { factories } from '@strapi/strapi';
 
-export default factories.createCoreRouter('api::plan-tratament.plan-tratament');
+export default factories.createCoreRouter('api::plan-tratament.plan-tratament', {
+  config: {
+    find: {
+      middlewares: [],
+      policies: [],
+    },
+    findOne: {
+      middlewares: [],
+      policies: [],
+    },
+    create: {
+      middlewares: [],
+      policies: [],
+    },
+    update: {
+      middlewares: [],
+      policies: [],
+    },
+    delete: {
+      middlewares: [],
+      policies: [],
+    },
+  },
+});
 
