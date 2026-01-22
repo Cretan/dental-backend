@@ -13,7 +13,10 @@
     "noEmitOnError": true,
     "noImplicitThis": true,
     "outDir": "dist",
-    "rootDir": "."
+    "rootDir": ".",
+	  "sourceMap": false,
+    "inlineSources": true,
+    "inlineSourceMap": true
   },
   "include": [
     // Include root files
@@ -38,6 +41,8 @@
     // Do not include test files
     "**/*.test.*",
     // Do not include plugins in the server compilation
-    "src/plugins/**"
+    "src/plugins/**",
+    "**/*.js.map",
+    "**/*.d.ts"    
   ]
 }
