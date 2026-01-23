@@ -325,7 +325,7 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
           id: plan.pacient.id,
           nume: plan.pacient.nume,
           prenume: plan.pacient.prenume,
-          CNP: plan.pacient.CNP,
+          cnp: plan.pacient.cnp,
         } : null,
         cabinet: plan.cabinet ? {
           id: plan.cabinet.id,
@@ -504,7 +504,7 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
         patient: plan.pacient ? {
           nume: plan.pacient.nume,
           prenume: plan.pacient.prenume,
-          CNP: plan.pacient.CNP,
+          cnp: plan.pacient.cnp,
         } : null,
         cabinet: plan.cabinet ? {
           nume_cabinet: plan.cabinet.nume_cabinet,
