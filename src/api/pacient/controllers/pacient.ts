@@ -12,8 +12,7 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
       strapi.log.info(`[PACIENT DELETE] Cerere DELETE pentru pacient ID: ${ctx.params.id}`);
       try {
         const result = await super.delete(ctx);
-        strapi.log.info(`[PACIENT DELETE] Rezultat Strapi:`);
-        console.dir(result, { depth: 5 });
+        strapi.log.info(`[PACIENT DELETE] Patient deleted successfully`);
         return result;
       } catch (error) {
         strapi.log.error(`[PACIENT DELETE] Eroare la ștergere pacient ID ${ctx.params.id}: ${error.message}`);

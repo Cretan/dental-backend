@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Build output (will be copied from builder stage)
+dist/
+build/
+
+# Environment files (will be set via docker-compose)
+.env
+.env.local
+.env.*.local
+
+# SQLite database (using PostgreSQL in production)
+*.db
+.tmp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Uploads (mounted as volume)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Documentation
+*.md
+LICENSE
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Test files
+coverage/
+test-results/
