@@ -14,10 +14,12 @@ export default factories.createCoreRouter("api::cabinet.cabinet", {
           config: {
             roles: [
               "super_admin",
+              "clinic_admin",
               "cabinet_admin",
               "dentist",
               "receptionist",
               "accountant",
+              "employee",
             ],
           },
         },
@@ -30,10 +32,12 @@ export default factories.createCoreRouter("api::cabinet.cabinet", {
           config: {
             roles: [
               "super_admin",
+              "clinic_admin",
               "cabinet_admin",
               "dentist",
               "receptionist",
               "accountant",
+              "employee",
             ],
           },
         },
@@ -54,7 +58,7 @@ export default factories.createCoreRouter("api::cabinet.cabinet", {
         {
           name: "global::role-check",
           config: {
-            roles: ["super_admin", "cabinet_admin"],
+            roles: ["super_admin", "clinic_admin", "cabinet_admin"],
           },
         },
       ],

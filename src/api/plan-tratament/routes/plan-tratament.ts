@@ -17,10 +17,12 @@ export default factories.createCoreRouter(
             config: {
               roles: [
                 "super_admin",
+                "clinic_admin",
                 "cabinet_admin",
                 "dentist",
                 "receptionist",
                 "accountant",
+                "employee",
               ],
             },
           },
@@ -34,10 +36,12 @@ export default factories.createCoreRouter(
             config: {
               roles: [
                 "super_admin",
+                "clinic_admin",
                 "cabinet_admin",
                 "dentist",
                 "receptionist",
                 "accountant",
+                "employee",
               ],
             },
           },
@@ -49,7 +53,7 @@ export default factories.createCoreRouter(
           {
             name: "global::role-check",
             config: {
-              roles: ["super_admin", "cabinet_admin", "dentist"],
+              roles: ["super_admin", "clinic_admin", "cabinet_admin", "dentist"],
             },
           },
         ],
@@ -60,7 +64,7 @@ export default factories.createCoreRouter(
           {
             name: "global::role-check",
             config: {
-              roles: ["super_admin", "cabinet_admin", "dentist"],
+              roles: ["super_admin", "clinic_admin", "cabinet_admin", "dentist"],
             },
           },
         ],
@@ -71,7 +75,7 @@ export default factories.createCoreRouter(
           {
             name: "global::role-check",
             config: {
-              roles: ["super_admin", "cabinet_admin"],
+              roles: ["super_admin", "clinic_admin", "cabinet_admin"],
             },
           },
         ],

@@ -1,5 +1,40 @@
 import type { Schema, Struct } from '@strapi/strapi';
 
+export interface FacturaLinieFactura extends Struct.ComponentSchema {
+  collectionName: 'components_factura_linie_facturas';
+  info: {
+    displayName: 'Linie_factura';
+  };
+  attributes: {
+    cantitate: Schema.Attribute.Integer &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 1;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<1>;
+    pret_total: Schema.Attribute.Decimal &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    pret_unitar: Schema.Attribute.Decimal &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    procedura: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
 export interface TratamentDinteTratamentDinte extends Struct.ComponentSchema {
   collectionName: 'components_tratament_dinte_tratament_dintes';
   info: {
@@ -72,6 +107,7 @@ export interface TratamentDinteTratamentDinte extends Struct.ComponentSchema {
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
+      'factura.linie-factura': FacturaLinieFactura;
       'tratament-dinte.tratament-dinte': TratamentDinteTratamentDinte;
     }
   }

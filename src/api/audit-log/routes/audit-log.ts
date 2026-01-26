@@ -15,13 +15,13 @@ export default factories.createCoreRouter("api::audit-log.audit-log", {
       policies: ["global::cabinet-isolation"],
     },
     create: {
-      policies: [() => false],
+      policies: ["global::deny-all"],
     },
     update: {
-      policies: [() => false],
+      policies: ["global::deny-all"],
     },
     delete: {
-      policies: [() => false],
+      policies: ["global::deny-all"],
     },
   },
 });

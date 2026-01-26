@@ -70,11 +70,21 @@ export default async (
   );
   
   // For single cabinet resource access, only allow user's own cabinet
+  // In Strapi v5, ctx.params.id is documentId (string), not numeric id
   if (contentType === "cabinet" && id) {
-    if (parseInt(id) !== primaryCabinetId) {
-      strapi.log.warn(
-        `[CABINET-POLICY] User ${user.id} denied access to cabinet ${id} (owns ${primaryCabinetId})`
-      );
+    try {
+      const cabinetEntity = await strapi.documents("api::cabinet.cabinet").findOne({
+        documentId: id,
+        status: "published",
+      });
+      if (!cabinetEntity || cabinetEntity.id !== primaryCabinetId) {
+        strapi.log.warn(
+          `[CABINET-POLICY] User ${user.id} denied access to cabinet ${id} (owns ${primaryCabinetId})`
+        );
+        return false;
+      }
+    } catch (error: any) {
+      strapi.log.error(`[CABINET-POLICY] Error checking cabinet ${id}: ${error.message}`);
       return false;
     }
   }
@@ -83,8 +93,11 @@ export default async (
   if (id && method !== "POST" && ["pacient", "vizita", "plan-tratament", "price-list", "doctor", "factura", "plata", "audit-log"].includes(contentType)) {
     try {
       const uid = `api::${contentType}.${contentType}`;
-      const entity = await strapi.entityService.findOne(uid, parseInt(id), {
-        populate: ["cabinet"],
+      // Strapi v5: use Document Service with documentId
+      const entity = await strapi.documents(uid).findOne({
+        documentId: id,
+        status: "published",
+        populate: { cabinet: true },
       });
 
       if (!entity) {
@@ -93,7 +106,7 @@ export default async (
       }
 
       const entityCabinetId = entity.cabinet?.id;
-      
+
       if (entityCabinetId && entityCabinetId !== primaryCabinetId) {
         strapi.log.warn(
           `[CABINET-POLICY] User ${user.id} denied access to ${contentType} ${id} (different cabinet)`

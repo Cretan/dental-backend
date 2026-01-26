@@ -39,7 +39,8 @@
     "factura": {
       "type": "relation",
       "relation": "manyToOne",
-      "target": "api::factura.factura"
+      "target": "api::factura.factura",
+      "inversedBy": "platas"
     },
     "cabinet": {
       "type": "relation",

@@ -467,6 +467,49 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiAuditLogAuditLog extends Struct.CollectionTypeSchema {
+  collectionName: 'audit_logs';
+  info: {
+    description: 'Immutable audit trail for all entity changes';
+    displayName: 'AuditLog';
+    pluralName: 'audit-logs';
+    singularName: 'audit-log';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    actiune: Schema.Attribute.Enumeration<
+      ['Create', 'Update', 'Delete', 'View']
+    > &
+      Schema.Attribute.Required;
+    cabinet: Schema.Attribute.Relation<'manyToOne', 'api::cabinet.cabinet'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    date_noi: Schema.Attribute.JSON;
+    date_vechi: Schema.Attribute.JSON;
+    detalii: Schema.Attribute.Text;
+    entitate: Schema.Attribute.String & Schema.Attribute.Required;
+    entitate_id: Schema.Attribute.String & Schema.Attribute.Required;
+    ip_address: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::audit-log.audit-log'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    user: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
 export interface ApiCabinetCabinet extends Struct.CollectionTypeSchema {
   collectionName: 'cabinets';
   info: {
@@ -487,12 +530,18 @@ export interface ApiCabinetCabinet extends Struct.CollectionTypeSchema {
       'oneToMany',
       'plugin::users-permissions.user'
     >;
+    audit_logs: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::audit-log.audit-log'
+    >;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    doctors: Schema.Attribute.Relation<'oneToMany', 'api::doctor.doctor'>;
     email: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
+    facturi: Schema.Attribute.Relation<'oneToMany', 'api::factura.factura'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -503,11 +552,157 @@ export interface ApiCabinetCabinet extends Struct.CollectionTypeSchema {
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
     pacienti: Schema.Attribute.Relation<'oneToMany', 'api::pacient.pacient'>;
+    plati: Schema.Attribute.Relation<'oneToMany', 'api::plata.plata'>;
     program_functionare: Schema.Attribute.JSON & Schema.Attribute.Required;
     publishedAt: Schema.Attribute.DateTime;
     telefon: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
+  collectionName: 'doctors';
+  info: {
+    displayName: 'Doctor';
+    pluralName: 'doctors';
+    singularName: 'doctor';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    added_by: Schema.Attribute.Relation<
+      'oneToOne',
+      'plugin::users-permissions.user'
+    >;
+    cabinet: Schema.Attribute.Relation<'manyToOne', 'api::cabinet.cabinet'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    email: Schema.Attribute.Email;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::doctor.doctor'
+    > &
+      Schema.Attribute.Private;
+    nr_licenta: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique;
+    nume: Schema.Attribute.String & Schema.Attribute.Required;
+    prenume: Schema.Attribute.String & Schema.Attribute.Required;
+    program_lucru: Schema.Attribute.JSON;
+    publishedAt: Schema.Attribute.DateTime;
+    specializare: Schema.Attribute.Enumeration<
+      [
+        'Generala',
+        'Ortodontie',
+        'Endodontie',
+        'Chirurgie',
+        'Parodontologie',
+        'Pedodontie',
+        'Estetica',
+      ]
+    > &
+      Schema.Attribute.Required;
+    telefon: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    user: Schema.Attribute.Relation<
+      'oneToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
+export interface ApiFacturaFactura extends Struct.CollectionTypeSchema {
+  collectionName: 'facturas';
+  info: {
+    displayName: 'Factura';
+    pluralName: 'facturas';
+    singularName: 'factura';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    added_by: Schema.Attribute.Relation<
+      'oneToOne',
+      'plugin::users-permissions.user'
+    >;
+    cabinet: Schema.Attribute.Relation<'manyToOne', 'api::cabinet.cabinet'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    data_emitere: Schema.Attribute.Date & Schema.Attribute.Required;
+    data_scadenta: Schema.Attribute.Date;
+    discount_procent: Schema.Attribute.Decimal &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    discount_valoare: Schema.Attribute.Decimal &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    linii_factura: Schema.Attribute.Component<'factura.linie-factura', true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::factura.factura'
+    > &
+      Schema.Attribute.Private;
+    numar_factura: Schema.Attribute.String & Schema.Attribute.Required;
+    observatii: Schema.Attribute.Text;
+    pacient: Schema.Attribute.Relation<'manyToOne', 'api::pacient.pacient'>;
+    plan_tratament: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::plan-tratament.plan-tratament'
+    >;
+    platas: Schema.Attribute.Relation<'oneToMany', 'api::plata.plata'>;
+    publishedAt: Schema.Attribute.DateTime;
+    status: Schema.Attribute.Enumeration<
+      ['Draft', 'Emisa', 'Platita', 'Partiala', 'Anulata']
+    > &
+      Schema.Attribute.Required;
+    subtotal: Schema.Attribute.Decimal &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    total: Schema.Attribute.Decimal &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    tva_procent: Schema.Attribute.Decimal &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<19>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -540,6 +735,7 @@ export interface ApiPacientPacient extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     data_nasterii: Schema.Attribute.Date & Schema.Attribute.Required;
     email: Schema.Attribute.Email;
+    facturi: Schema.Attribute.Relation<'oneToMany', 'api::factura.factura'>;
     istoric_medical: Schema.Attribute.Blocks;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -552,8 +748,13 @@ export interface ApiPacientPacient extends Struct.CollectionTypeSchema {
       'oneToMany',
       'api::plan-tratament.plan-tratament'
     >;
+    plati: Schema.Attribute.Relation<'oneToMany', 'api::plata.plata'>;
     prenume: Schema.Attribute.String & Schema.Attribute.Required;
     publishedAt: Schema.Attribute.DateTime;
+    status_pacient: Schema.Attribute.Enumeration<
+      ['Activ', 'Inactiv', 'Arhivat']
+    > &
+      Schema.Attribute.DefaultTo<'Activ'>;
     telefon: Schema.Attribute.String & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -583,6 +784,7 @@ export interface ApiPlanTratamentPlanTratament
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     data_creare: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    facturi: Schema.Attribute.Relation<'oneToMany', 'api::factura.factura'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -597,6 +799,52 @@ export interface ApiPlanTratamentPlanTratament
       'tratament-dinte.tratament-dinte',
       true
     >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiPlataPlata extends Struct.CollectionTypeSchema {
+  collectionName: 'platas';
+  info: {
+    displayName: 'Plata';
+    pluralName: 'platas';
+    singularName: 'plata';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    added_by: Schema.Attribute.Relation<
+      'oneToOne',
+      'plugin::users-permissions.user'
+    >;
+    cabinet: Schema.Attribute.Relation<'manyToOne', 'api::cabinet.cabinet'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    data_plata: Schema.Attribute.Date & Schema.Attribute.Required;
+    factura: Schema.Attribute.Relation<'manyToOne', 'api::factura.factura'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::plata.plata'> &
+      Schema.Attribute.Private;
+    metoda_plata: Schema.Attribute.Enumeration<
+      ['Cash', 'Card', 'Transfer', 'Asigurare']
+    > &
+      Schema.Attribute.Required;
+    observatii: Schema.Attribute.Text;
+    pacient: Schema.Attribute.Relation<'manyToOne', 'api::pacient.pacient'>;
+    publishedAt: Schema.Attribute.DateTime;
+    referinta: Schema.Attribute.String;
+    suma: Schema.Attribute.Decimal &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -682,6 +930,7 @@ export interface ApiVizitaVizita extends Struct.CollectionTypeSchema {
       'api::vizita.vizita'
     > &
       Schema.Attribute.Private;
+    medic: Schema.Attribute.Relation<'manyToOne', 'api::doctor.doctor'>;
     observatii: Schema.Attribute.String;
     pacient: Schema.Attribute.Relation<'manyToOne', 'api::pacient.pacient'>;
     publishedAt: Schema.Attribute.DateTime;
@@ -1218,9 +1467,13 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::audit-log.audit-log': ApiAuditLogAuditLog;
       'api::cabinet.cabinet': ApiCabinetCabinet;
+      'api::doctor.doctor': ApiDoctorDoctor;
+      'api::factura.factura': ApiFacturaFactura;
       'api::pacient.pacient': ApiPacientPacient;
       'api::plan-tratament.plan-tratament': ApiPlanTratamentPlanTratament;
+      'api::plata.plata': ApiPlataPlata;
       'api::price-list.price-list': ApiPriceListPriceList;
       'api::vizita.vizita': ApiVizitaVizita;
       'plugin::content-releases.release': PluginContentReleasesRelease;

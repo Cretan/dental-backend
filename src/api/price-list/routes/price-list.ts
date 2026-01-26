@@ -15,10 +15,12 @@ export default factories.createCoreRouter("api::price-list.price-list", {
           config: {
             roles: [
               "super_admin",
+              "clinic_admin",
               "cabinet_admin",
               "dentist",
               "receptionist",
               "accountant",
+              "employee",
             ],
           },
         },
@@ -32,10 +34,12 @@ export default factories.createCoreRouter("api::price-list.price-list", {
           config: {
             roles: [
               "super_admin",
+              "clinic_admin",
               "cabinet_admin",
               "dentist",
               "receptionist",
               "accountant",
+              "employee",
             ],
           },
         },
@@ -47,7 +51,7 @@ export default factories.createCoreRouter("api::price-list.price-list", {
         {
           name: "global::role-check",
           config: {
-            roles: ["super_admin", "cabinet_admin"],
+            roles: ["super_admin", "clinic_admin", "cabinet_admin"],
           },
         },
       ],
@@ -58,7 +62,7 @@ export default factories.createCoreRouter("api::price-list.price-list", {
         {
           name: "global::role-check",
           config: {
-            roles: ["super_admin", "cabinet_admin"],
+            roles: ["super_admin", "clinic_admin", "cabinet_admin"],
           },
         },
       ],
@@ -69,7 +73,7 @@ export default factories.createCoreRouter("api::price-list.price-list", {
         {
           name: "global::role-check",
           config: {
-            roles: ["super_admin", "cabinet_admin"],
+            roles: ["super_admin", "clinic_admin", "cabinet_admin"],
           },
         },
       ],

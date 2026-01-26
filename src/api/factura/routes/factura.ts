@@ -15,10 +15,12 @@ export default factories.createCoreRouter("api::factura.factura", {
           config: {
             roles: [
               "super_admin",
+              "clinic_admin",
               "cabinet_admin",
               "dentist",
               "receptionist",
               "accountant",
+              "employee",
             ],
           },
         },
@@ -32,10 +34,12 @@ export default factories.createCoreRouter("api::factura.factura", {
           config: {
             roles: [
               "super_admin",
+              "clinic_admin",
               "cabinet_admin",
               "dentist",
               "receptionist",
               "accountant",
+              "employee",
             ],
           },
         },
@@ -47,7 +51,7 @@ export default factories.createCoreRouter("api::factura.factura", {
         {
           name: "global::role-check",
           config: {
-            roles: ["super_admin", "cabinet_admin", "accountant"],
+            roles: ["super_admin", "clinic_admin", "cabinet_admin", "accountant"],
           },
         },
       ],
@@ -58,7 +62,7 @@ export default factories.createCoreRouter("api::factura.factura", {
         {
           name: "global::role-check",
           config: {
-            roles: ["super_admin", "cabinet_admin", "accountant"],
+            roles: ["super_admin", "clinic_admin", "cabinet_admin", "accountant"],
           },
         },
       ],
@@ -69,7 +73,7 @@ export default factories.createCoreRouter("api::factura.factura", {
         {
           name: "global::role-check",
           config: {
-            roles: ["super_admin", "cabinet_admin"],
+            roles: ["super_admin", "clinic_admin", "cabinet_admin"],
           },
         },
       ],

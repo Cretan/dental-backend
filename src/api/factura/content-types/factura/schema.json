@@ -86,6 +86,12 @@
       "target": "api::plan-tratament.plan-tratament",
       "inversedBy": "facturi"
     },
+    "platas": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::plata.plata",
+      "mappedBy": "factura"
+    },
     "added_by": {
       "type": "relation",
       "relation": "oneToOne",

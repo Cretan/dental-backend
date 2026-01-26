@@ -15,10 +15,12 @@ export default factories.createCoreRouter("api::vizita.vizita", {
           config: {
             roles: [
               "super_admin",
+              "clinic_admin",
               "cabinet_admin",
               "dentist",
               "receptionist",
               "accountant",
+              "employee",
             ],
           },
         },
@@ -32,10 +34,12 @@ export default factories.createCoreRouter("api::vizita.vizita", {
           config: {
             roles: [
               "super_admin",
+              "clinic_admin",
               "cabinet_admin",
               "dentist",
               "receptionist",
               "accountant",
+              "employee",
             ],
           },
         },
@@ -49,6 +53,7 @@ export default factories.createCoreRouter("api::vizita.vizita", {
           config: {
             roles: [
               "super_admin",
+              "clinic_admin",
               "cabinet_admin",
               "dentist",
               "receptionist",
@@ -65,6 +70,7 @@ export default factories.createCoreRouter("api::vizita.vizita", {
           config: {
             roles: [
               "super_admin",
+              "clinic_admin",
               "cabinet_admin",
               "dentist",
               "receptionist",
@@ -79,7 +85,7 @@ export default factories.createCoreRouter("api::vizita.vizita", {
         {
           name: "global::role-check",
           config: {
-            roles: ["super_admin", "cabinet_admin"],
+            roles: ["super_admin", "clinic_admin", "cabinet_admin"],
           },
         },
       ],
