@@ -13,8 +13,8 @@
  * - Link tables may reference the draft row's id
  * - We must resolve to the published row for API filtering
  */
-export default (config: any, { strapi }: { strapi: any }) => {
-  return async (ctx: any, next: () => Promise<any>) => {
+export default (config: Record<string, unknown>, { strapi }: { strapi: any }) => {
+  return async (ctx: any, next: () => Promise<void>) => {
 
     // Skip admin and auth routes
     if (ctx.url.startsWith('/admin') || ctx.url.startsWith('/api/auth')) {
@@ -150,8 +150,9 @@ export default (config: any, { strapi }: { strapi: any }) => {
 
       await next();
 
-    } catch (error) {
-      strapi.log.error('Cabinet isolation middleware error:', error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      strapi.log.error('Cabinet isolation middleware error:', message);
       ctx.status = 500;
       ctx.body = { error: "Internal server error" };
       return;

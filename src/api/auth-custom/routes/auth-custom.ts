@@ -6,7 +6,12 @@ export default {
       handler: 'auth-custom.refresh',
       config: {
         policies: [],
-        middlewares: [],
+        middlewares: [
+          {
+            name: 'global::rate-limit',
+            config: { maxRequests: 5, windowMs: 60000 },
+          },
+        ],
       },
     },
   ],

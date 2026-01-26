@@ -12,8 +12,19 @@ interface PolicyConfig {
   roles?: string[];
 }
 
+interface PolicyContext {
+  state: {
+    user?: {
+      id: number;
+      role?: { type: string; name: string };
+    };
+  };
+  status?: number;
+  body?: Record<string, unknown>;
+}
+
 export default (
-  policyContext: any,
+  policyContext: PolicyContext,
   config: PolicyConfig,
   { strapi }: { strapi: any }
 ): boolean => {

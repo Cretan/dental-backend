@@ -31,7 +31,7 @@ interface RequestBody {
 
 export default async (
   ctx: any,
-  config: any,
+  config: Record<string, unknown>,
   { strapi }: { strapi: any }
 ): Promise<boolean> => {
   const user: User = ctx.state.user;

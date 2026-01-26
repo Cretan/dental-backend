@@ -8,8 +8,15 @@
 
 import jwt from 'jsonwebtoken';
 
-// Grace period: accept expired tokens up to 24 hours old
-const REFRESH_GRACE_PERIOD_SECONDS = 24 * 60 * 60;
+interface DecodedToken {
+  id: number;
+  cabinetId?: number;
+  exp?: number;
+  iat?: number;
+}
+
+// Grace period: accept expired tokens up to 1 hour old
+const REFRESH_GRACE_PERIOD_SECONDS = 60 * 60;
 
 /**
  * Resolve the user's primary cabinet ID from link tables.
@@ -91,16 +98,25 @@ export default {
         'plugin::users-permissions.jwtSecret'
       ) || strapi.config.get('plugin.users-permissions.jwtSecret');
 
-      let decoded: any;
+      let decoded: DecodedToken | null = null;
 
       // First, try to verify normally (token still valid)
       try {
         decoded = await strapi.plugins['users-permissions'].services.jwt.verify(token);
-      } catch (verifyError: any) {
+      } catch (verifyError: unknown) {
         // If token is expired, decode it without verification and check grace period
-        if (verifyError.name === 'TokenExpiredError') {
-          // Decode without verification to read payload
-          decoded = jwt.decode(token);
+        const isExpiredError = verifyError instanceof Error && verifyError.name === 'TokenExpiredError';
+        if (isExpiredError) {
+          // Decode WITH signature verification but ignore expiration
+          try {
+            const refreshJwtSecret = strapi.config.get(
+              'plugin::users-permissions.jwtSecret'
+            ) || strapi.config.get('plugin.users-permissions.jwtSecret');
+
+            decoded = jwt.verify(token, refreshJwtSecret as jwt.Secret, { ignoreExpiration: true }) as DecodedToken;
+          } catch {
+            return ctx.unauthorized('Invalid token signature');
+          }
 
           if (!decoded || !decoded.id) {
             return ctx.unauthorized('Invalid token payload');
@@ -123,7 +139,8 @@ export default {
           );
         } else {
           // Other verification errors (invalid signature, malformed, etc.)
-          strapi.log.warn(`[AUTH-REFRESH] Token verification failed: ${verifyError.message}`);
+          const verifyMessage = verifyError instanceof Error ? verifyError.message : String(verifyError);
+          strapi.log.warn(`[AUTH-REFRESH] Token verification failed: ${verifyMessage}`);
           return ctx.unauthorized('Invalid token');
         }
       }
@@ -173,8 +190,9 @@ export default {
         jwt: newToken,
         user: sanitizedUser,
       });
-    } catch (error) {
-      strapi.log.error(`[AUTH-REFRESH] Token refresh failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      strapi.log.error(`[AUTH-REFRESH] Token refresh failed: ${message}`);
       return ctx.unauthorized('Token refresh failed');
     }
   },
