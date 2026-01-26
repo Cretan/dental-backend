@@ -5,10 +5,6 @@
  * TypeScript version with proper type definitions.
  */
 
-interface PolicyContext {
-  ctx: any;
-}
-
 interface User {
   id: number;
   role?: {
@@ -34,48 +30,50 @@ interface RequestBody {
 }
 
 export default async (
-  policyContext: PolicyContext, 
-  config: any, 
+  ctx: any,
+  config: any,
   { strapi }: { strapi: any }
 ): Promise<boolean> => {
-  const { ctx } = policyContext;
   const user: User = ctx.state.user;
   const { method } = ctx.request;
   const { id } = ctx.params;
-  
-  strapi.log.debug(`[CABINET-POLICY] ${method} request for user ${user?.id || 'unknown'}`);
-  
+
+  // Read primaryCabinetId from ctx.state (set by session-auth middleware)
+  const primaryCabinetId: number | null = ctx.state.primaryCabinetId || null;
+
+  strapi.log.debug(`[CABINET-POLICY] ${method} request for user ${user?.id || 'unknown'}, cabinet=${primaryCabinetId}`);
+
   // Allow unauthenticated requests
   if (!user) {
     return true;
   }
-  
+
   // Skip for Super Admin
   if (user.role?.type === "authenticated" && user.role?.name === "Super Admin") {
     strapi.log.debug(`[CABINET-POLICY] Super Admin access granted`);
     return true;
   }
-  
-  // Check if user has primary cabinet (set by middleware)
-  if (!user.primaryCabinetId) {
+
+  // Check if user has primary cabinet (set by session-auth middleware on ctx.state)
+  if (!primaryCabinetId) {
     strapi.log.warn(`[CABINET-POLICY] User ${user.id} has no cabinet assigned`);
     ctx.status = 403;
     ctx.body = { error: "Nu ai cabinet asociat." };
     return false;
   }
-  
+
   const route: Route = ctx.state.route;
   const contentType: string = route?.info?.apiName;
-  
+
   strapi.log.debug(
-    `[CABINET-POLICY] User ${user.id} accessing ${contentType} ${id || 'list'}, Cabinet: ${user.primaryCabinetId}`
+    `[CABINET-POLICY] User ${user.id} accessing ${contentType} ${id || 'list'}, Cabinet: ${primaryCabinetId}`
   );
   
   // For single cabinet resource access, only allow user's own cabinet
   if (contentType === "cabinet" && id) {
-    if (parseInt(id) !== user.primaryCabinetId) {
+    if (parseInt(id) !== primaryCabinetId) {
       strapi.log.warn(
-        `[CABINET-POLICY] User ${user.id} denied access to cabinet ${id} (owns ${user.primaryCabinetId})`
+        `[CABINET-POLICY] User ${user.id} denied access to cabinet ${id} (owns ${primaryCabinetId})`
       );
       return false;
     }
@@ -96,7 +94,7 @@ export default async (
 
       const entityCabinetId = entity.cabinet?.id;
       
-      if (entityCabinetId && entityCabinetId !== user.primaryCabinetId) {
+      if (entityCabinetId && entityCabinetId !== primaryCabinetId) {
         strapi.log.warn(
           `[CABINET-POLICY] User ${user.id} denied access to ${contentType} ${id} (different cabinet)`
         );
@@ -117,14 +115,14 @@ export default async (
       if (data.cabinet) {
         const requestedCabinetId = typeof data.cabinet === "object" ? data.cabinet.id : data.cabinet;
         
-        if (requestedCabinetId && Number(requestedCabinetId) !== Number(user.primaryCabinetId)) {
+        if (requestedCabinetId && Number(requestedCabinetId) !== Number(primaryCabinetId)) {
           strapi.log.warn(`[CABINET-POLICY] Wrong cabinet in POST request`);
           return false;
         }
       } else {
         // Auto-assign user's cabinet
-        data.cabinet = user.primaryCabinetId;
-        strapi.log.debug(`[CABINET-POLICY] Auto-assigned cabinet ${user.primaryCabinetId} to POST`);
+        data.cabinet = primaryCabinetId;
+        strapi.log.debug(`[CABINET-POLICY] Auto-assigned cabinet ${primaryCabinetId} to POST`);
       }
     }
   }
@@ -137,7 +135,7 @@ export default async (
     if (data && data.cabinet) {
       const newCabinetId = typeof data.cabinet === "object" ? data.cabinet.id : data.cabinet;
       
-      if (newCabinetId && parseInt(String(newCabinetId)) !== user.primaryCabinetId) {
+      if (newCabinetId && parseInt(String(newCabinetId)) !== primaryCabinetId) {
         strapi.log.warn(`[CABINET-POLICY] Attempted cabinet change denied`);
         return false;
       }

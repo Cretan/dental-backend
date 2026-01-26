@@ -11,7 +11,6 @@ export default {
       path: '/pacients/search',
       handler: 'pacient.search',
       config: {
-        middlewares: ['global::session-auth'],
         policies: ['global::cabinet-isolation'],
       },
     },
@@ -21,7 +20,6 @@ export default {
       path: '/pacients/statistics',
       handler: 'pacient.statistics',
       config: {
-        middlewares: ['global::session-auth'],
         policies: ['global::cabinet-isolation'],
       },
     },

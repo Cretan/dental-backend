@@ -10,7 +10,6 @@ export default {
       path: '/vizitas/upcoming',
       handler: 'vizita.upcoming',
       config: {
-        middlewares: ['global::session-auth'],
         policies: ['global::cabinet-isolation'],
       },
     },
@@ -19,7 +18,6 @@ export default {
       path: '/vizitas/history/:patientId',
       handler: 'vizita.history',
       config: {
-        middlewares: ['global::session-auth'],
         policies: ['global::cabinet-isolation'],
       },
     },

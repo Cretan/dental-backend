@@ -4,8 +4,14 @@
  *
  * This middleware:
  * 1. Verifies JWT authentication
- * 2. Resolves user's cabinet (handles draft/publish states)
+ * 2. Resolves user's cabinet (handles Strapi v5 draft/publish states)
  * 3. Applies cabinet filtering to all data queries
+ *
+ * Strapi v5 draft/publish note:
+ * - Each content entry has a draft row (publishedAt=null) and a published row
+ * - Both share the same document_id
+ * - Link tables may reference the draft row's id
+ * - We must resolve to the published row for API filtering
  */
 export default (config: any, { strapi }: { strapi: any }) => {
   return async (ctx: any, next: () => Promise<any>) => {
@@ -35,10 +41,10 @@ export default (config: any, { strapi }: { strapi: any }) => {
       // Verify JWT token
       const decoded = await strapi.plugins["users-permissions"].services.jwt.verify(token);
 
-      // Get user with cabinet relations
+      // Get basic user info (users don't use draft/publish)
       const user = await strapi.db.query('plugin::users-permissions.user').findOne({
         where: { id: decoded.id },
-        populate: ['role', 'cabinet', 'cabinet_angajat']
+        populate: { role: true }
       });
 
       if (!user) {
@@ -48,46 +54,32 @@ export default (config: any, { strapi }: { strapi: any }) => {
         return;
       }
 
-      // Smart cabinet detection: Handle Strapi draft/publish system
+      // Resolve cabinet via link tables (Strapi v5 stores relations in link tables)
+      const knex = strapi.db.connection;
       let primaryCabinetId = null;
 
-      if (user.cabinet && user.cabinet.id) {
-        if (user.cabinet.publishedAt) {
-          // User has direct link to published cabinet
-          primaryCabinetId = user.cabinet.id;
-        } else {
-          // User has link to draft - find published version by name
-          const publishedCabinet = await strapi.db.query('api::cabinet.cabinet').findOne({
-            where: {
-              nume_cabinet: user.cabinet.nume_cabinet,
-              publishedAt: { $ne: null }
-            }
-          });
+      // Check primary cabinet relation (oneToOne: user.cabinet)
+      const cabinetLink = await knex('up_users_cabinet_lnk')
+        .where('user_id', user.id)
+        .first()
+        .catch(() => null);
 
-          if (publishedCabinet) {
-            primaryCabinetId = publishedCabinet.id;
-          }
-        }
-      } else if (user.cabinet_angajat) {
-        // Handle employee cabinet relations with draft/publish logic
-        let employeeCabinet = null;
-        if (Array.isArray(user.cabinet_angajat) && user.cabinet_angajat.length > 0) {
-          employeeCabinet = user.cabinet_angajat[0];
-        } else if (user.cabinet_angajat.id) {
-          employeeCabinet = user.cabinet_angajat;
-        }
+      if (cabinetLink) {
+        // cabinetLink.cabinet_id might point to draft or published row
+        const linkedCabinet = await knex('cabinets')
+          .where('id', cabinetLink.cabinet_id)
+          .first();
 
-        if (employeeCabinet) {
-          if (employeeCabinet.publishedAt) {
-            primaryCabinetId = employeeCabinet.id;
+        if (linkedCabinet) {
+          if (linkedCabinet.published_at) {
+            // Already the published version
+            primaryCabinetId = linkedCabinet.id;
           } else {
-            // Find published version of employee cabinet
-            const publishedCabinet = await strapi.db.query('api::cabinet.cabinet').findOne({
-              where: {
-                nume_cabinet: employeeCabinet.nume_cabinet,
-                publishedAt: { $ne: null }
-              }
-            });
+            // Draft row - find published version with same document_id
+            const publishedCabinet = await knex('cabinets')
+              .where('document_id', linkedCabinet.document_id)
+              .whereNotNull('published_at')
+              .first();
 
             if (publishedCabinet) {
               primaryCabinetId = publishedCabinet.id;
@@ -96,11 +88,39 @@ export default (config: any, { strapi }: { strapi: any }) => {
         }
       }
 
-      // Enhance user context
-      ctx.state.user = {
-        ...user,
-        primaryCabinetId
-      };
+      // If no primary cabinet, check employee cabinet relation (manyToOne: user.cabinet_angajat)
+      if (!primaryCabinetId) {
+        const angajatLink = await knex('up_users_cabinet_angajat_lnk')
+          .where('user_id', user.id)
+          .first()
+          .catch(() => null);
+
+        if (angajatLink) {
+          const linkedCabinet = await knex('cabinets')
+            .where('id', angajatLink.cabinet_id)
+            .first();
+
+          if (linkedCabinet) {
+            if (linkedCabinet.published_at) {
+              primaryCabinetId = linkedCabinet.id;
+            } else {
+              const publishedCabinet = await knex('cabinets')
+                .where('document_id', linkedCabinet.document_id)
+                .whereNotNull('published_at')
+                .first();
+
+              if (publishedCabinet) {
+                primaryCabinetId = publishedCabinet.id;
+              }
+            }
+          }
+        }
+      }
+
+      strapi.log.info(`[SESSION-AUTH] User ${user.id} (${user.username}): primaryCabinetId=${primaryCabinetId}`);
+
+      // Store cabinet ID on ctx.state (not on ctx.state.user, which Strapi's auth may overwrite)
+      ctx.state.primaryCabinetId = primaryCabinetId;
 
       // Apply cabinet filtering for list requests (published content only)
       if (primaryCabinetId && ctx.method === "GET" && !ctx.params?.id && user.role?.type !== "Super Admin") {
@@ -121,9 +141,10 @@ export default (config: any, { strapi }: { strapi: any }) => {
       await next();
 
     } catch (error) {
-      // Log error but continue - don't expose internal errors
       strapi.log.error('Cabinet isolation middleware error:', error.message);
-      await next();
+      ctx.status = 500;
+      ctx.body = { error: "Internal server error" };
+      return;
     }
   };
 };
