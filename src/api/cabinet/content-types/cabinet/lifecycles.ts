@@ -1,47 +1,18 @@
 /**
- * Vizita Lifecycle Hooks
- * Auto-populates added_by field with authenticated user
+ * Cabinet Lifecycle Hooks
  * Audit logging for create, update, delete operations
- * Production-ready implementation using JWT token from request context
+ * Production-ready implementation
  */
 
 import { logAuditEvent } from "../../../../utils/audit-logger";
 
 export default {
-  async beforeCreate(event) {
-    const { data } = event.params;
-    const user = event.state?.user;
-
-    // Auto-populate added_by with authenticated user
-    if (user && user.id) {
-      data.added_by = user.id;
-    } else {
-      strapi.log.warn(
-        "Visit created without authenticated user - added_by not set"
-      );
-    }
-
-    // Auto-populate status_vizita if not provided
-    if (!data.status_vizita) {
-      data.status_vizita = "Programata";
-    }
-  },
-
-  async beforeUpdate(event) {
-    // added_by should not be changed after creation
-    const { data } = event.params;
-    if (data.added_by !== undefined) {
-      delete data.added_by;
-      strapi.log.warn("Attempt to modify added_by field blocked");
-    }
-  },
-
   async afterCreate(event) {
     const ctx = strapi.requestContext?.get();
     const { result } = event;
     await logAuditEvent(strapi, {
       actiune: "Create",
-      entitate: "vizita",
+      entitate: "cabinet",
       entitate_id: result?.documentId || String(result?.id || ""),
       date_vechi: null,
       date_noi: result,
@@ -56,7 +27,7 @@ export default {
     const { result, params } = event;
     await logAuditEvent(strapi, {
       actiune: "Update",
-      entitate: "vizita",
+      entitate: "cabinet",
       entitate_id: result?.documentId || String(result?.id || ""),
       date_vechi: null,
       date_noi: params.data,
@@ -71,7 +42,7 @@ export default {
     const { result } = event;
     await logAuditEvent(strapi, {
       actiune: "Delete",
-      entitate: "vizita",
+      entitate: "cabinet",
       entitate_id: result?.documentId || String(result?.id || ""),
       date_vechi: result,
       date_noi: null,

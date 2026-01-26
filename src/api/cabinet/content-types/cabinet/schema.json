@@ -69,6 +69,12 @@
       "relation": "oneToMany",
       "target": "api::plata.plata",
       "mappedBy": "cabinet"
+    },
+    "audit_logs": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::audit-log.audit-log",
+      "mappedBy": "cabinet"
     }
   }
 }

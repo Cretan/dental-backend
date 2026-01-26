@@ -1,0 +1,57 @@
+{
+  "kind": "collectionType",
+  "collectionName": "audit_logs",
+  "info": {
+    "singularName": "audit-log",
+    "pluralName": "audit-logs",
+    "displayName": "AuditLog",
+    "description": "Immutable audit trail for all entity changes"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "actiune": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "Create",
+        "Update",
+        "Delete",
+        "View"
+      ]
+    },
+    "entitate": {
+      "type": "string",
+      "required": true
+    },
+    "entitate_id": {
+      "type": "string",
+      "required": true
+    },
+    "date_vechi": {
+      "type": "json"
+    },
+    "date_noi": {
+      "type": "json"
+    },
+    "ip_address": {
+      "type": "string"
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "cabinet": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::cabinet.cabinet",
+      "inversedBy": "audit_logs"
+    },
+    "detalii": {
+      "type": "text"
+    }
+  }
+}

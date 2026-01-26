@@ -2,8 +2,11 @@
  * Plata Lifecycle Hooks
  * Auto-populates added_by field with authenticated user
  * Updates invoice status when payment is recorded
+ * Audit logging for create, update, delete operations
  * Production-ready implementation
  */
+
+import { logAuditEvent } from "../../../../utils/audit-logger";
 
 export default {
   async beforeCreate(event) {
@@ -14,12 +17,14 @@ export default {
     if (user && user.id) {
       data.added_by = user.id;
     } else {
-      strapi.log.warn('Payment created without authenticated user - added_by not set');
+      strapi.log.warn(
+        "Payment created without authenticated user - added_by not set"
+      );
     }
 
     // Auto-populate data_plata if not provided
     if (!data.data_plata) {
-      data.data_plata = new Date().toISOString().split('T')[0];
+      data.data_plata = new Date().toISOString().split("T")[0];
     }
   },
 
@@ -32,6 +37,19 @@ export default {
     if (facturaId) {
       await updateInvoiceStatus(facturaId);
     }
+
+    // Audit log
+    const ctx = strapi.requestContext?.get();
+    await logAuditEvent(strapi, {
+      actiune: "Create",
+      entitate: "plata",
+      entitate_id: result?.documentId || String(result?.id || ""),
+      date_vechi: null,
+      date_noi: result,
+      ip_address: ctx?.request?.ip,
+      user: ctx?.state?.user?.id,
+      cabinet: ctx?.state?.primaryCabinetId,
+    });
   },
 
   async afterUpdate(event) {
@@ -43,6 +61,19 @@ export default {
     if (facturaId) {
       await updateInvoiceStatus(facturaId);
     }
+
+    // Audit log
+    const ctx = strapi.requestContext?.get();
+    await logAuditEvent(strapi, {
+      actiune: "Update",
+      entitate: "plata",
+      entitate_id: result?.documentId || String(result?.id || ""),
+      date_vechi: null,
+      date_noi: data,
+      ip_address: ctx?.request?.ip,
+      user: ctx?.state?.user?.id,
+      cabinet: ctx?.state?.primaryCabinetId,
+    });
   },
 
   async afterDelete(event) {
@@ -53,6 +84,19 @@ export default {
     if (facturaId) {
       await updateInvoiceStatus(facturaId);
     }
+
+    // Audit log
+    const ctx = strapi.requestContext?.get();
+    await logAuditEvent(strapi, {
+      actiune: "Delete",
+      entitate: "plata",
+      entitate_id: result?.documentId || String(result?.id || ""),
+      date_vechi: result,
+      date_noi: null,
+      ip_address: ctx?.request?.ip,
+      user: ctx?.state?.user?.id,
+      cabinet: ctx?.state?.primaryCabinetId,
+    });
   },
 
   async beforeUpdate(event) {
@@ -60,7 +104,7 @@ export default {
     const { data } = event.params;
     if (data.added_by !== undefined) {
       delete data.added_by;
-      strapi.log.warn('Attempt to modify added_by field blocked');
+      strapi.log.warn("Attempt to modify added_by field blocked");
     }
   },
 };
@@ -74,19 +118,19 @@ export default {
 async function updateInvoiceStatus(facturaId: number | string) {
   try {
     // Get the invoice with its total
-    const factura = await strapi.db.query('api::factura.factura').findOne({
+    const factura = await strapi.db.query("api::factura.factura").findOne({
       where: { id: facturaId },
-      select: ['id', 'total', 'status', 'documentId'],
+      select: ["id", "total", "status", "documentId"],
     });
 
-    if (!factura || factura.status === 'Anulata') {
+    if (!factura || factura.status === "Anulata") {
       return;
     }
 
     // Get all payments for this invoice
-    const payments = await strapi.db.query('api::plata.plata').findMany({
+    const payments = await strapi.db.query("api::plata.plata").findMany({
       where: { factura: facturaId },
-      select: ['suma'],
+      select: ["suma"],
     });
 
     const totalPayments = payments.reduce((sum, payment) => {
@@ -97,14 +141,14 @@ async function updateInvoiceStatus(facturaId: number | string) {
 
     let newStatus = factura.status;
     if (totalPayments >= invoiceTotal && invoiceTotal > 0) {
-      newStatus = 'Platita';
+      newStatus = "Platita";
     } else if (totalPayments > 0) {
-      newStatus = 'Partiala';
+      newStatus = "Partiala";
     }
 
     // Only update if status changed
     if (newStatus !== factura.status) {
-      await strapi.db.query('api::factura.factura').update({
+      await strapi.db.query("api::factura.factura").update({
         where: { id: facturaId },
         data: { status: newStatus },
       });
@@ -114,6 +158,8 @@ async function updateInvoiceStatus(facturaId: number | string) {
       );
     }
   } catch (error) {
-    strapi.log.error(`[PLATA] Error updating invoice status: ${error.message}`);
+    strapi.log.error(
+      `[PLATA] Error updating invoice status: ${error.message}`
+    );
   }
 }

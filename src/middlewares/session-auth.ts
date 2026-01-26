@@ -54,56 +54,35 @@ export default (config: any, { strapi }: { strapi: any }) => {
         return;
       }
 
-      // Resolve cabinet via link tables (Strapi v5 stores relations in link tables)
-      const knex = strapi.db.connection;
       let primaryCabinetId = null;
 
-      // Check primary cabinet relation (oneToOne: user.cabinet)
-      const cabinetLink = await knex('up_users_cabinet_lnk')
-        .where('user_id', user.id)
-        .first()
-        .catch(() => null);
+      // Check if JWT payload already contains cabinetId (enriched tokens)
+      if (decoded.cabinetId != null) {
+        primaryCabinetId = decoded.cabinetId;
+        strapi.log.debug(`[SESSION-AUTH] Using cabinetId from JWT: ${primaryCabinetId}`);
+      } else {
+        // Fallback: resolve cabinet via link tables (for old tokens without cabinetId)
+        strapi.log.debug('[SESSION-AUTH] No cabinetId in JWT, resolving from DB');
+        const knex = strapi.db.connection;
 
-      if (cabinetLink) {
-        // cabinetLink.cabinet_id might point to draft or published row
-        const linkedCabinet = await knex('cabinets')
-          .where('id', cabinetLink.cabinet_id)
-          .first();
-
-        if (linkedCabinet) {
-          if (linkedCabinet.published_at) {
-            // Already the published version
-            primaryCabinetId = linkedCabinet.id;
-          } else {
-            // Draft row - find published version with same document_id
-            const publishedCabinet = await knex('cabinets')
-              .where('document_id', linkedCabinet.document_id)
-              .whereNotNull('published_at')
-              .first();
-
-            if (publishedCabinet) {
-              primaryCabinetId = publishedCabinet.id;
-            }
-          }
-        }
-      }
-
-      // If no primary cabinet, check employee cabinet relation (manyToOne: user.cabinet_angajat)
-      if (!primaryCabinetId) {
-        const angajatLink = await knex('up_users_cabinet_angajat_lnk')
+        // Check primary cabinet relation (oneToOne: user.cabinet)
+        const cabinetLink = await knex('up_users_cabinet_lnk')
           .where('user_id', user.id)
           .first()
           .catch(() => null);
 
-        if (angajatLink) {
+        if (cabinetLink) {
+          // cabinetLink.cabinet_id might point to draft or published row
           const linkedCabinet = await knex('cabinets')
-            .where('id', angajatLink.cabinet_id)
+            .where('id', cabinetLink.cabinet_id)
             .first();
 
           if (linkedCabinet) {
             if (linkedCabinet.published_at) {
+              // Already the published version
               primaryCabinetId = linkedCabinet.id;
             } else {
+              // Draft row - find published version with same document_id
               const publishedCabinet = await knex('cabinets')
                 .where('document_id', linkedCabinet.document_id)
                 .whereNotNull('published_at')
@@ -111,6 +90,35 @@ export default (config: any, { strapi }: { strapi: any }) => {
 
               if (publishedCabinet) {
                 primaryCabinetId = publishedCabinet.id;
+              }
+            }
+          }
+        }
+
+        // If no primary cabinet, check employee cabinet relation (manyToOne: user.cabinet_angajat)
+        if (!primaryCabinetId) {
+          const angajatLink = await knex('up_users_cabinet_angajat_lnk')
+            .where('user_id', user.id)
+            .first()
+            .catch(() => null);
+
+          if (angajatLink) {
+            const linkedCabinet = await knex('cabinets')
+              .where('id', angajatLink.cabinet_id)
+              .first();
+
+            if (linkedCabinet) {
+              if (linkedCabinet.published_at) {
+                primaryCabinetId = linkedCabinet.id;
+              } else {
+                const publishedCabinet = await knex('cabinets')
+                  .where('document_id', linkedCabinet.document_id)
+                  .whereNotNull('published_at')
+                  .first();
+
+                if (publishedCabinet) {
+                  primaryCabinetId = publishedCabinet.id;
+                }
               }
             }
           }
@@ -133,7 +141,7 @@ export default (config: any, { strapi }: { strapi: any }) => {
         } else if (ctx.url.includes('/pacients') || ctx.url.includes('/vizitas') ||
                    ctx.url.includes('/plan-trataments') || ctx.url.includes('/price-lists') ||
                    ctx.url.includes('/doctors') || ctx.url.includes('/facturas') ||
-                   ctx.url.includes('/platas')) {
+                   ctx.url.includes('/platas') || ctx.url.includes('/audit-logs')) {
           // Filter by cabinet relation
           ctx.query.filters.cabinet = ctx.query.filters.cabinet || {};
           ctx.query.filters.cabinet.id = { $eq: primaryCabinetId };

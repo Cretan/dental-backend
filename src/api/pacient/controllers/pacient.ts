@@ -156,64 +156,113 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
 
   /**
    * Get patient statistics
+   * Database-agnostic: works with both PostgreSQL and SQLite
    */
   async statistics(ctx) {
     try {
-      // Total count
+      const knex = strapi.db.connection;
+      const dbClient: string = strapi.config.get('database.connection.client', 'sqlite');
+
+      // Total count via Strapi entity service (DB-agnostic)
       const totalPatients = await strapi.db.query('api::pacient.pacient').count();
-      
-      // Simple age distribution without complex SQL (fallback for safety)
+
+      // Age distribution - use DB-specific date functions
       let ageDistribution = [];
       try {
-        // Try raw SQL for better performance
-        const ageGroups = await strapi.db.connection.raw(`
-          SELECT 
-            CASE 
-              WHEN EXTRACT(YEAR FROM AGE(data_nasterii)) < 18 THEN 'Under 18'
-              WHEN EXTRACT(YEAR FROM AGE(data_nasterii)) < 35 THEN '18-35'
-              WHEN EXTRACT(YEAR FROM AGE(data_nasterii)) < 50 THEN '35-50'
-              WHEN EXTRACT(YEAR FROM AGE(data_nasterii)) < 65 THEN '50-65'
-              ELSE '65+'
-            END as age_group,
-            COUNT(*) as count
-          FROM pacients
-          WHERE data_nasterii IS NOT NULL
-          GROUP BY age_group
-          ORDER BY 
-            CASE 
-              WHEN EXTRACT(YEAR FROM AGE(data_nasterii)) < 18 THEN 1
-              WHEN EXTRACT(YEAR FROM AGE(data_nasterii)) < 35 THEN 2
-              WHEN EXTRACT(YEAR FROM AGE(data_nasterii)) < 50 THEN 3
-              WHEN EXTRACT(YEAR FROM AGE(data_nasterii)) < 65 THEN 4
-              ELSE 5
-            END
-        `);
-        ageDistribution = ageGroups.rows || [];
+        let ageQuery: string;
+
+        if (dbClient === 'postgres') {
+          // PostgreSQL: use EXTRACT(YEAR FROM AGE(...))
+          ageQuery = `
+            SELECT age_group, COUNT(*) as count FROM (
+              SELECT
+                CASE
+                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 18 THEN 'Under 18'
+                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 35 THEN '18-35'
+                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 50 THEN '35-50'
+                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 65 THEN '50-65'
+                  ELSE '65+'
+                END as age_group,
+                CASE
+                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 18 THEN 1
+                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 35 THEN 2
+                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 50 THEN 3
+                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 65 THEN 4
+                  ELSE 5
+                END as sort_order
+              FROM pacients
+              WHERE data_nasterii IS NOT NULL AND published_at IS NOT NULL
+            ) sub
+            GROUP BY age_group, sort_order
+            ORDER BY sort_order
+          `;
+        } else {
+          // SQLite: use julianday for age calculation
+          ageQuery = `
+            SELECT age_group, COUNT(*) as count FROM (
+              SELECT
+                CASE
+                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 18 THEN 'Under 18'
+                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 35 THEN '18-35'
+                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 50 THEN '35-50'
+                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 65 THEN '50-65'
+                  ELSE '65+'
+                END as age_group,
+                CASE
+                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 18 THEN 1
+                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 35 THEN 2
+                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 50 THEN 3
+                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 65 THEN 4
+                  ELSE 5
+                END as sort_order
+              FROM pacients
+              WHERE data_nasterii IS NOT NULL AND published_at IS NOT NULL
+            ) sub
+            GROUP BY age_group, sort_order
+            ORDER BY sort_order
+          `;
+        }
+
+        const ageGroups = await knex.raw(ageQuery);
+
+        // PostgreSQL returns { rows: [...] }, SQLite returns the array directly
+        if (dbClient === 'postgres') {
+          ageDistribution = ageGroups.rows || [];
+        } else {
+          ageDistribution = Array.isArray(ageGroups) ? ageGroups : [];
+        }
       } catch (sqlError) {
-        strapi.log.warn('Raw SQL failed, using basic stats', sqlError);
-        // Fallback: just return empty array if SQL fails
+        strapi.log.warn('[STATISTICS] Age distribution query failed, using fallback', sqlError.message);
         ageDistribution = [];
       }
-      
-      // Cabinet statistics (optional, may fail if no cabinets)
+
+      // Cabinet statistics - uses link table (DB-agnostic SQL)
       let byCabinet = [];
       try {
-        const cabinetStats = await strapi.db.connection.raw(`
-          SELECT 
+        const cabinetQuery = `
+          SELECT
             c.nume_cabinet,
             COUNT(p.id) as patient_count
           FROM cabinets c
           LEFT JOIN pacients_cabinet_lnk pcl ON c.id = pcl.cabinet_id
-          LEFT JOIN pacients p ON pcl.pacient_id = p.id
+          LEFT JOIN pacients p ON pcl.pacient_id = p.id AND p.published_at IS NOT NULL
+          WHERE c.published_at IS NOT NULL
           GROUP BY c.id, c.nume_cabinet
           ORDER BY patient_count DESC
-        `);
-        byCabinet = cabinetStats.rows || [];
+        `;
+
+        const cabinetStats = await knex.raw(cabinetQuery);
+
+        if (dbClient === 'postgres') {
+          byCabinet = cabinetStats.rows || [];
+        } else {
+          byCabinet = Array.isArray(cabinetStats) ? cabinetStats : [];
+        }
       } catch (cabinetError) {
-        strapi.log.warn('Cabinet stats failed', cabinetError);
+        strapi.log.warn('[STATISTICS] Cabinet stats query failed', cabinetError.message);
         byCabinet = [];
       }
-      
+
       return {
         total: totalPatients,
         ageDistribution,
@@ -221,7 +270,7 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      strapi.log.error('Statistics error:', error);
+      strapi.log.error('[STATISTICS] Error:', error);
       return ctx.internalServerError('Failed to generate statistics');
     }
   },
