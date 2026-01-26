@@ -117,27 +117,8 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
 
     // All validations passed - create visit
     try {
+      // Strapi v5: super.create returns flat response { data: { id, documentId, ...fields } }
       const response = await super.create(ctx);
-      
-      // Fetch the full entity with populate to return complete data including documentId
-      const createdId = response.data?.id || response.data?.data?.id;
-      const documentId = response.data?.documentId || response.data?.data?.documentId;
-      
-      if (createdId) {
-        const fullEntity = await strapi.db.query('api::vizita.vizita').findOne({
-          where: { id: createdId },
-          populate: true,
-        });
-        
-        return {
-          data: {
-            id: createdId,
-            documentId: documentId || fullEntity.documentId, // Include documentId
-            attributes: fullEntity,
-          },
-        };
-      }
-      
       return response;
     } catch (error) {
       strapi.log.error('Visit creation error:', error);
@@ -229,24 +210,8 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
 
     // All validations passed - update visit
     try {
+      // Strapi v5: super.update returns flat response { data: { id, documentId, ...fields } }
       const response = await super.update(ctx);
-      
-      // Fetch the full entity with populate to return complete data with updated values
-      const updatedId = response.data?.id || currentVisit.id;
-      if (updatedId) {
-        const fullEntity = await strapi.db.query('api::vizita.vizita').findOne({
-          where: { id: updatedId },
-          populate: true,
-        });
-        
-        return {
-          data: {
-            id: updatedId,
-            attributes: fullEntity,
-          },
-        };
-      }
-      
       return response;
     } catch (error) {
       strapi.log.error('Visit update error:', error);

@@ -46,12 +46,12 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
    */
   async findOne(ctx) {
     const response = await super.findOne(ctx);
-    
-    // Transform tooth numbers in response
-    if (response?.data?.attributes?.tratamente) {
-      response.data.attributes.tratamente = transformTratamenteForFrontend(response.data.attributes.tratamente);
+
+    // Strapi v5: response is flat — response.data.tratamente (no .attributes wrapper)
+    if (response?.data?.tratamente) {
+      response.data.tratamente = transformTratamenteForFrontend(response.data.tratamente);
     }
-    
+
     return response;
   },
 
@@ -60,16 +60,16 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
    */
   async find(ctx) {
     const response = await super.find(ctx);
-    
-    // Transform tooth numbers in all items
+
+    // Strapi v5: each item in response.data is a flat object (no .attributes wrapper)
     if (response?.data && Array.isArray(response.data)) {
       response.data.forEach(item => {
-        if (item?.attributes?.tratamente) {
-          item.attributes.tratamente = transformTratamenteForFrontend(item.attributes.tratamente);
+        if (item?.tratamente) {
+          item.tratamente = transformTratamenteForFrontend(item.tratamente);
         }
       });
     }
-    
+
     return response;
   },
 
@@ -152,35 +152,31 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
       tratamente_sample: data.tratamente?.[0],
     }));
     
-    // Prepare data for creation
+    // Prepare data for creation (Strapi v5: no publishedAt — use status instead)
     const createData = {
       data_creare: data.data_creare,
       pret_total: data.pret_total,
       observatii: data.observatii,
-      publishedAt: data.publishedAt || new Date().toISOString(),
       pacient: pacientId, // relation as ID
       cabinet: cabinetId, // relation as ID (can be null)
       tratamente: data.tratamente, // components as array
     };
-    
-    // Use entityService for proper relation handling
-    const createdPlan = await strapi.entityService.create('api::plan-tratament.plan-tratament', {
+
+    // Use Document Service API for Strapi v5
+    const createdPlan = await strapi.documents('api::plan-tratament.plan-tratament').create({
       data: createData,
+      status: 'published',
       populate: ['pacient', 'cabinet', 'tratamente'],
     }) as any;
-    
+
     // Transform tooth numbers: remove "dinte_" prefix for frontend
     if (createdPlan && createdPlan.tratamente) {
       createdPlan.tratamente = transformTratamenteForFrontend(createdPlan.tratamente);
     }
-    
-    // Return in Strapi v5 format with attributes
+
+    // Strapi v5: return flat document response (no data.attributes wrapping)
     return {
-      data: {
-        id: createdPlan.id,
-        documentId: createdPlan.documentId,
-        attributes: createdPlan, // entityService returns flat object
-      },
+      data: createdPlan,
     };
   } catch (error) {
     strapi.log.error('Treatment plan creation error:', error.message || error);
@@ -247,29 +243,13 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
     // All validations passed - update plan
     try {
       const response = await super.update(ctx);
-      
-      // Fetch the full entity with populate to return complete data with updated values
-      const { id } = ctx.params;
-      const updatedId = response.data?.id || id;
-      if (updatedId) {
-        const fullEntity = await strapi.db.query('api::plan-tratament.plan-tratament').findOne({
-          where: { id: updatedId },
-          populate: true,
-        });
-        
-        // Transform tooth numbers: remove "dinte_" prefix for frontend
-        if (fullEntity && fullEntity.tratamente) {
-          fullEntity.tratamente = transformTratamenteForFrontend(fullEntity.tratamente);
-        }
-        
-        return {
-          data: {
-            id: updatedId,
-            attributes: fullEntity,
-          },
-        };
+
+      // Strapi v5: response.data is already a flat object from the core controller
+      // Transform tooth numbers in the response
+      if (response?.data?.tratamente) {
+        response.data.tratamente = transformTratamenteForFrontend(response.data.tratamente);
       }
-      
+
       return response;
     } catch (error) {
       strapi.log.error('Treatment plan update error:', error);

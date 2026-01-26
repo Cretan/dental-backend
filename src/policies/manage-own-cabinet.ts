@@ -55,11 +55,14 @@ export default async (ctx, config, { strapi }) => {
   // For updating/deleting (only for your custom content types)
   if (ctx.params.id) {
     try {
-      const targetUser = await strapi.entityService.findOne(
-        "plugin::users-permissions.user",
-        ctx.params.id,
-        { populate: ["cabinet"] }
-      );
+      // Use strapi.db.query for users-permissions plugin entities
+      // (plugin entities may not be registered in the Document Service)
+      const targetUser = await strapi.db.query(
+        "plugin::users-permissions.user"
+      ).findOne({
+        where: { documentId: ctx.params.id },
+        populate: ["cabinet"],
+      });
 
       return (
         targetUser &&

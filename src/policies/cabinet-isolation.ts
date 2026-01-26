@@ -148,7 +148,7 @@ export default async (
     if (data && data.cabinet) {
       const newCabinetId = typeof data.cabinet === "object" ? data.cabinet.id : data.cabinet;
       
-      if (newCabinetId && parseInt(String(newCabinetId)) !== primaryCabinetId) {
+      if (newCabinetId && Number(newCabinetId) !== Number(primaryCabinetId)) {
         strapi.log.warn(`[CABINET-POLICY] Attempted cabinet change denied`);
         return false;
       }

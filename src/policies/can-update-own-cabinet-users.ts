@@ -19,6 +19,6 @@ export default (ctx, config, { strapi }) => {
     return false;
   }
 
-  // Strict comparison
-  return user.cabinet.id === parseInt(cabinetId);
+  // Strict comparison using Number() for consistency
+  return Number(user.cabinet.id) === Number(cabinetId);
 };
