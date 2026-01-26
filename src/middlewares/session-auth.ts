@@ -131,7 +131,7 @@ export default (config: Record<string, unknown>, { strapi }: { strapi: any }) =>
       ctx.state.primaryCabinetId = primaryCabinetId;
 
       // Apply cabinet filtering for list requests (published content only)
-      if (primaryCabinetId && ctx.method === "GET" && !ctx.params?.id && user.role?.type !== "Super Admin") {
+      if (primaryCabinetId && ctx.method === "GET" && !ctx.params?.id && user.role?.type !== "super_admin") {
         ctx.query = ctx.query || {};
         ctx.query.filters = ctx.query.filters || {};
 

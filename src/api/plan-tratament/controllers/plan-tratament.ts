@@ -3,42 +3,12 @@
  */
 
 import { factories } from '@strapi/strapi';
-
-// Helper function to add "dinte_" prefix to tooth numbers
-const addDintePrefix = (numarDinte: string | null | undefined): string | null => {
-  if (!numarDinte) return null;
-  // If already has prefix, return as is
-  if (numarDinte.startsWith('dinte_')) return numarDinte;
-  // Add prefix
-  return `dinte_${numarDinte}`;
-};
-
-// Helper function to remove "dinte_" prefix from tooth numbers
-const removeDintePrefix = (numarDinte: string | null | undefined): string | null => {
-  if (!numarDinte) return null;
-  // Remove prefix if present
-  if (numarDinte.startsWith('dinte_')) {
-    return numarDinte.substring(6); // Remove "dinte_"
-  }
-  return numarDinte;
-};
-
-// Transform tratamente array: add prefix to numar_dinte
-const transformTratamenteForDB = (tratamente: any[]): any[] => {
-  return tratamente.map(t => ({
-    ...t,
-    numar_dinte: addDintePrefix(t.numar_dinte)
-  }));
-};
-
-// Transform tratamente array: remove prefix from numar_dinte
-const transformTratamenteForFrontend = (tratamente: any[]): any[] => {
-  if (!tratamente) return [];
-  return tratamente.map(t => ({
-    ...t,
-    numar_dinte: removeDintePrefix(t.numar_dinte)
-  }));
-};
+import {
+  addDintePrefix,
+  removeDintePrefix,
+  transformTratamenteForDB,
+  transformTratamenteForFrontend,
+} from '../../../utils/tooth-prefix';
 
 export default factories.createCoreController('api::plan-tratament.plan-tratament', ({ strapi }) => ({
   /**
