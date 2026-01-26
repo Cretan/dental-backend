@@ -1,0 +1,30 @@
+{
+  "collectionName": "components_factura_linie_facturas",
+  "info": {
+    "displayName": "Linie_factura"
+  },
+  "options": {},
+  "attributes": {
+    "procedura": {
+      "type": "string",
+      "required": true
+    },
+    "cantitate": {
+      "type": "integer",
+      "required": true,
+      "default": 1,
+      "min": 1
+    },
+    "pret_unitar": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "pret_total": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    }
+  },
+  "config": {}
+}

@@ -131,7 +131,9 @@ export default (config: any, { strapi }: { strapi: any }) => {
           // Show only user's cabinet
           ctx.query.filters.id = { $eq: primaryCabinetId };
         } else if (ctx.url.includes('/pacients') || ctx.url.includes('/vizitas') ||
-                   ctx.url.includes('/plan-trataments') || ctx.url.includes('/price-lists')) {
+                   ctx.url.includes('/plan-trataments') || ctx.url.includes('/price-lists') ||
+                   ctx.url.includes('/doctors') || ctx.url.includes('/facturas') ||
+                   ctx.url.includes('/platas')) {
           // Filter by cabinet relation
           ctx.query.filters.cabinet = ctx.query.filters.cabinet || {};
           ctx.query.filters.cabinet.id = { $eq: primaryCabinetId };

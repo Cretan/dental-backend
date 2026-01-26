@@ -1,0 +1,95 @@
+{
+  "kind": "collectionType",
+  "collectionName": "facturas",
+  "info": {
+    "singularName": "factura",
+    "pluralName": "facturas",
+    "displayName": "Factura"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "numar_factura": {
+      "type": "string",
+      "required": true
+    },
+    "data_emitere": {
+      "type": "date",
+      "required": true
+    },
+    "data_scadenta": {
+      "type": "date"
+    },
+    "status": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "Draft",
+        "Emisa",
+        "Platita",
+        "Partiala",
+        "Anulata"
+      ]
+    },
+    "subtotal": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "discount_procent": {
+      "type": "decimal",
+      "default": 0,
+      "min": 0,
+      "max": 100
+    },
+    "discount_valoare": {
+      "type": "decimal",
+      "default": 0,
+      "min": 0
+    },
+    "tva_procent": {
+      "type": "decimal",
+      "default": 19,
+      "min": 0,
+      "max": 100
+    },
+    "total": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "observatii": {
+      "type": "text"
+    },
+    "linii_factura": {
+      "type": "component",
+      "component": "factura.linie-factura",
+      "repeatable": true
+    },
+    "pacient": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::pacient.pacient",
+      "inversedBy": "facturi"
+    },
+    "cabinet": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::cabinet.cabinet",
+      "inversedBy": "facturi"
+    },
+    "plan_tratament": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::plan-tratament.plan-tratament",
+      "inversedBy": "facturi"
+    },
+    "added_by": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}

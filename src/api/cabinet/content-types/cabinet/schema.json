@@ -51,6 +51,24 @@
     "program_functionare": {
       "type": "json",
       "required": true
+    },
+    "doctors": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::doctor.doctor",
+      "mappedBy": "cabinet"
+    },
+    "facturi": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::factura.factura",
+      "mappedBy": "cabinet"
+    },
+    "plati": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::plata.plata",
+      "mappedBy": "cabinet"
     }
   }
 }

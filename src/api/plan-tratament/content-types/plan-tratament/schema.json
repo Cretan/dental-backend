@@ -37,6 +37,12 @@
     "observatii": {
       "type": "blocks"
     },
+    "facturi": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::factura.factura",
+      "mappedBy": "plan_tratament"
+    },
     "added_by": {
       "type": "relation",
       "relation": "oneToOne",

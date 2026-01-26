@@ -1,11 +1,11 @@
 /**
- * price-list router with authentication and policy
+ * doctor router with authentication and policy
  * Secured with session-auth middleware and cabinet-isolation policy
  */
 
 import { factories } from "@strapi/strapi";
 
-export default factories.createCoreRouter("api::price-list.price-list", {
+export default factories.createCoreRouter("api::doctor.doctor", {
   config: {
     find: {
       policies: ["global::cabinet-isolation"],

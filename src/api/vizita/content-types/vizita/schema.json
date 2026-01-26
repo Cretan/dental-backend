@@ -58,6 +58,11 @@
     "observatii": {
       "type": "string"
     },
+    "medic": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::doctor.doctor"
+    },
     "added_by": {
       "type": "relation",
       "relation": "oneToOne",

@@ -1,0 +1,62 @@
+{
+  "kind": "collectionType",
+  "collectionName": "platas",
+  "info": {
+    "singularName": "plata",
+    "pluralName": "platas",
+    "displayName": "Plata"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "data_plata": {
+      "type": "date",
+      "required": true
+    },
+    "suma": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "metoda_plata": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "Cash",
+        "Card",
+        "Transfer",
+        "Asigurare"
+      ]
+    },
+    "referinta": {
+      "type": "string"
+    },
+    "observatii": {
+      "type": "text"
+    },
+    "factura": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::factura.factura"
+    },
+    "cabinet": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::cabinet.cabinet",
+      "inversedBy": "plati"
+    },
+    "pacient": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::pacient.pacient",
+      "inversedBy": "plati"
+    },
+    "added_by": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}

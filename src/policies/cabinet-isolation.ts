@@ -80,7 +80,7 @@ export default async (
   }
   
   // For other single resource access, verify cabinet ownership
-  if (id && method !== "POST" && ["pacient", "vizita", "plan-tratament", "price-list"].includes(contentType)) {
+  if (id && method !== "POST" && ["pacient", "vizita", "plan-tratament", "price-list", "doctor", "factura", "plata"].includes(contentType)) {
     try {
       const uid = `api::${contentType}.${contentType}`;
       const entity = await strapi.entityService.findOne(uid, parseInt(id), {
