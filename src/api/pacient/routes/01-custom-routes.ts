@@ -26,6 +26,12 @@ export default {
             },
           },
         ],
+        middlewares: [
+          {
+            name: 'global::rate-limit',
+            config: { maxRequests: 30, windowMs: 60000 },
+          },
+        ],
       },
     },
     // Statistics endpoint
@@ -41,6 +47,12 @@ export default {
             config: {
               roles: ['super_admin', 'cabinet_admin', 'dentist'],
             },
+          },
+        ],
+        middlewares: [
+          {
+            name: 'global::rate-limit',
+            config: { maxRequests: 10, windowMs: 60000 },
           },
         ],
       },

@@ -28,6 +28,14 @@ if (process.env.NODE_ENV !== "production") {
   });
 }
 
+// SECURITY: Fail closed - require explicit CORS origins in production
+if (process.env.NODE_ENV === "production" && corsOrigins.length === 0) {
+  throw new Error(
+    "CORS_ORIGINS or FRONTEND_URL must be set in production. " +
+    "Example: CORS_ORIGINS=https://app.example.com"
+  );
+}
+
 export default [
   "strapi::logger",
   "strapi::errors",
@@ -43,6 +51,13 @@ export default [
           "script-src": ["'self'"],
           "style-src": ["'self'", "'unsafe-inline'"],
         },
+      },
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+      },
+      frameguard: {
+        action: "deny",
       },
     },
   },

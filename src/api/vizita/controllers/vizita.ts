@@ -3,6 +3,9 @@
  */
 
 import { factories } from '@strapi/strapi';
+import { sanitizeTextFields } from '../../../utils/validators';
+
+const VISIT_TEXT_FIELDS = ['observatii'];
 
 export default factories.createCoreController('api::vizita.vizita', ({ strapi }) => ({
   /**
@@ -10,6 +13,9 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
    */
   async create(ctx) {
     const { data } = ctx.request.body;
+
+    // Sanitize free-text fields (strip HTML tags)
+    sanitizeTextFields(data, VISIT_TEXT_FIELDS);
 
     // Validation: Required fields
     if (!data.pacient) {
@@ -132,6 +138,9 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
   async update(ctx) {
     const { data } = ctx.request.body;
     const { id } = ctx.params;
+
+    // Sanitize free-text fields (strip HTML tags)
+    sanitizeTextFields(data, VISIT_TEXT_FIELDS);
 
     // Get current visit first
     const currentVisit = await strapi.db.query('api::vizita.vizita').findOne({

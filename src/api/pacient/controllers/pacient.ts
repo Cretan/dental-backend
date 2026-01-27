@@ -3,7 +3,9 @@
  */
 
 import { factories } from '@strapi/strapi';
-import { validateFieldLengths, validateCnp, validatePhone, validateEmail, calculateAge } from '../../../utils/validators';
+import { validateFieldLengths, validateCnp, validatePhone, validateEmail, calculateAge, sanitizeTextFields } from '../../../utils/validators';
+
+const PATIENT_TEXT_FIELDS = ['nume', 'prenume', 'adresa', 'alergii', 'observatii'];
 
 export default factories.createCoreController('api::pacient.pacient', ({ strapi }) => ({
     /**
@@ -28,6 +30,9 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
     const { data } = ctx.request.body;
 
     strapi.log.info(`[PACIENT CREATE] User ${ctx.state.user?.id} creating patient`);
+
+    // Sanitize free-text fields (strip HTML tags)
+    sanitizeTextFields(data, PATIENT_TEXT_FIELDS);
 
     // Input length validation (prevent abuse)
     const lengthError = validateFieldLengths(data);
@@ -77,7 +82,7 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
       strapi.log.info(`[PACIENT CREATE] Patient created with ID: ${response.data.id}`);
       return response;
     } catch (error: unknown) {
-      strapi.log.error(`[PACIENT CREATE] DATABASE ERROR:`, error);
+      strapi.log.error(`[PACIENT CREATE] DATABASE ERROR:`, error instanceof Error ? error.message : String(error));
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes('unique')) {
         strapi.log.error(`[PACIENT CREATE] Duplicate entry detected for patient`);
@@ -92,6 +97,9 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
    */
   async update(ctx) {
     const { data } = ctx.request.body;
+
+    // Sanitize free-text fields (strip HTML tags)
+    sanitizeTextFields(data, PATIENT_TEXT_FIELDS);
 
     // Input length validation (prevent abuse)
     const lengthError = validateFieldLengths(data);

@@ -9,6 +9,9 @@ import {
   transformTratamenteForDB,
   transformTratamenteForFrontend,
 } from '../../../utils/tooth-prefix';
+import { sanitizeTextFields, stripHtml } from '../../../utils/validators';
+
+const PLAN_TEXT_FIELDS = ['observatii'];
 
 export default factories.createCoreController('api::plan-tratament.plan-tratament', ({ strapi }) => ({
   /**
@@ -48,14 +51,18 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
    */
   async create(ctx) {
     try {
-      strapi.log.info('=== CREATE CALLED ===');
-      
       const { data } = ctx.request.body;
 
-      // DEBUG: Log what we receive
-      strapi.log.info('RAW REQUEST BODY:', JSON.stringify(ctx.request.body, null, 2));
-      strapi.log.info('DATA.PACIENT TYPE:', typeof data.pacient);
-      strapi.log.info('DATA.PACIENT VALUE:', JSON.stringify(data.pacient));
+      // Sanitize free-text fields (strip HTML tags)
+      sanitizeTextFields(data, PLAN_TEXT_FIELDS);
+      // Also sanitize observatii in each treatment
+      if (data.tratamente && Array.isArray(data.tratamente)) {
+        for (const tratament of data.tratamente) {
+          if (tratament.observatii && typeof tratament.observatii === 'string') {
+            tratament.observatii = stripHtml(tratament.observatii);
+          }
+        }
+      }
 
       // Validation: Patient is required
       if (!data.pacient) {
@@ -65,9 +72,6 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
       // Extract relation IDs (Strapi sends them as objects or IDs depending on format)
       const pacientId = typeof data.pacient === 'object' ? data.pacient.id : data.pacient;
       const cabinetId = data.cabinet ? (typeof data.cabinet === 'object' ? data.cabinet.id : data.cabinet) : null;
-
-      strapi.log.info('EXTRACTED PACIENT ID:', pacientId);
-      strapi.log.info('EXTRACTED CABINET ID:', cabinetId);
 
       // Validation: Verify patient exists
       const patient = await strapi.db.query('api::pacient.pacient').findOne({ where: { id: pacientId } });
@@ -114,14 +118,8 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
     const pret_total = data.tratamente.reduce((sum, t) => sum + (parseFloat(t.pret) || 0), 0);
     data.pret_total = parseFloat(pret_total.toFixed(2));
 
-    // Debug logging
-    strapi.log.info('Creating plan with extracted IDs:', JSON.stringify({
-      pacientId,
-      cabinetId,
-      tratamente_count: data.tratamente?.length,
-      tratamente_sample: data.tratamente?.[0],
-    }));
-    
+    strapi.log.info(`[PLAN CREATE] User ${ctx.state.user?.id} creating plan with ${data.tratamente?.length || 0} treatments`);
+
     // Prepare data for creation (Strapi v5: no publishedAt — use status instead)
     const createData = {
       data_creare: data.data_creare,
@@ -148,9 +146,9 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
     return {
       data: createdPlan,
     };
-  } catch (error) {
-    strapi.log.error('Treatment plan creation error:', error.message || error);
-    strapi.log.error('Stack:', error.stack);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    strapi.log.error(`[PLAN CREATE] Error: ${message}`);
     return ctx.internalServerError('Failed to create treatment plan');
   }
   },

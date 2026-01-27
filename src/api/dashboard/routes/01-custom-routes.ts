@@ -25,6 +25,12 @@ export default {
             },
           },
         ],
+        middlewares: [
+          {
+            name: 'global::rate-limit',
+            config: { maxRequests: 10, windowMs: 60000 },
+          },
+        ],
       },
     },
   ],

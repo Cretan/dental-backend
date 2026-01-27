@@ -11,4 +11,9 @@ export default ({ env }) => ({
       },
     },
   },
+  upload: {
+    config: {
+      sizeLimit: 5 * 1024 * 1024, // 5 MB max file size
+    },
+  },
 });

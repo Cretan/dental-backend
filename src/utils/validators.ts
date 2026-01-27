@@ -102,6 +102,27 @@ export function validateEmail(email: string): boolean {
 }
 
 /**
+ * Strip HTML tags from a string to prevent stored XSS.
+ * Used as server-side defense-in-depth for free-text fields.
+ */
+export function stripHtml(input: string): string {
+  if (!input || typeof input !== 'string') return input;
+  return input.replace(/<[^>]*>/g, '').trim();
+}
+
+/**
+ * Sanitize all string fields in a data object by stripping HTML tags.
+ * Applies to specified fields only (preserves non-string and unlisted fields).
+ */
+export function sanitizeTextFields(data: Record<string, any>, fields: string[]): void {
+  for (const field of fields) {
+    if (data[field] && typeof data[field] === 'string') {
+      data[field] = stripHtml(data[field]);
+    }
+  }
+}
+
+/**
  * Calculate age from birth date
  */
 export function calculateAge(birthDate: string): number {
