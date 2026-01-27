@@ -35,6 +35,11 @@ export default (config: Record<string, unknown>, { strapi }: { strapi: any }) =>
       return;
     }
 
+    // Resolve authentication and cabinet context.
+    // Errors here (JWT, user lookup, cabinet resolution) return 500.
+    // Errors from downstream middleware/controllers must NOT be caught here —
+    // they must propagate to Strapi's error handler for proper transaction
+    // rollback and error formatting.
     try {
       const token = authHeader.substring(7);
 
@@ -147,15 +152,16 @@ export default (config: Record<string, unknown>, { strapi }: { strapi: any }) =>
           ctx.query.filters.cabinet.id = { $eq: primaryCabinetId };
         }
       }
-
-      await next();
-
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      strapi.log.error('Cabinet isolation middleware error:', message);
+      strapi.log.error('Session-auth middleware error:', message);
       ctx.status = 500;
       ctx.body = { error: "Internal server error" };
       return;
     }
+
+    // Call downstream middleware/controllers OUTSIDE try/catch so errors
+    // propagate to Strapi's error handler for proper cleanup and formatting.
+    await next();
   };
 };

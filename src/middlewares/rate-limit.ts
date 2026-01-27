@@ -4,8 +4,10 @@
  */
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 
-// Clean up expired entries every 5 minutes
-setInterval(() => {
+// Clean up expired entries every 5 minutes.
+// unref() allows the process to exit naturally (tests, graceful shutdown)
+// without waiting for this interval to fire.
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [key, value] of requestCounts.entries()) {
     if (now > value.resetTime) {
@@ -13,6 +15,7 @@ setInterval(() => {
     }
   }
 }, 5 * 60 * 1000);
+cleanupTimer.unref();
 
 export default (config: { maxRequests?: number; windowMs?: number } = {}) => {
   const maxRequests = config.maxRequests || 10;

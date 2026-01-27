@@ -73,11 +73,19 @@ export default async (
   // In Strapi v5, ctx.params.id is documentId (string), not numeric id
   if (contentType === "cabinet" && id) {
     try {
-      const cabinetEntity = await strapi.documents("api::cabinet.cabinet").findOne({
-        documentId: id,
-        status: "published",
-      });
-      if (!cabinetEntity || cabinetEntity.id !== primaryCabinetId) {
+      // Use lightweight knex query instead of Document Service to avoid
+      // holding a pool connection open during the request lifecycle.
+      // Document Service wraps findOne in a transaction that may not release
+      // the connection before the controller runs, causing pool exhaustion
+      // with SQLite (single-writer constraint).
+      const knex = strapi.db.connection;
+      const cabinetRow = await knex("cabinets")
+        .where("document_id", id)
+        .whereNotNull("published_at")
+        .select("id")
+        .first();
+
+      if (!cabinetRow || cabinetRow.id !== primaryCabinetId) {
         strapi.log.warn(
           `[CABINET-POLICY] User ${user.id} denied access to cabinet ${id} (owns ${primaryCabinetId})`
         );
@@ -88,24 +96,44 @@ export default async (
       return false;
     }
   }
-  
+
   // For other single resource access, verify cabinet ownership
   if (id && method !== "POST" && ["pacient", "vizita", "plan-tratament", "price-list", "doctor", "factura", "plata", "audit-log"].includes(contentType)) {
     try {
+      // Use lightweight knex query instead of Document Service to avoid
+      // holding a pool connection that blocks the subsequent controller update.
+      // The Document Service's internal transaction keeps the connection checked
+      // out, which in SQLite causes the controller's UPDATE to wait for
+      // acquireConnectionTimeout (60s) before failing.
       const uid = `api::${contentType}.${contentType}`;
-      // Strapi v5: use Document Service with documentId
-      const entity = await strapi.documents(uid).findOne({
-        documentId: id,
-        status: "published",
-        populate: { cabinet: true },
-      });
+      const model = strapi.contentTypes[uid];
+      const tableName = model?.collectionName;
+      const singularName = model?.info?.singularName;
 
-      if (!entity) {
+      if (!tableName || !singularName) {
+        strapi.log.error(`[CABINET-POLICY] Could not resolve table for ${contentType}`);
+        return false;
+      }
+
+      const knex = strapi.db.connection;
+      const linkTable = `${tableName}_cabinet_lnk`;
+      // Content type singular names use hyphens (e.g., "plan-tratament"),
+      // but link table FK columns use underscores (e.g., "plan_tratament_id")
+      const fkCol = `${singularName.replace(/-/g, "_")}_id`;
+
+      const row = await knex(tableName)
+        .leftJoin(linkTable, `${tableName}.id`, `${linkTable}.${fkCol}`)
+        .where(`${tableName}.document_id`, id)
+        .whereNotNull(`${tableName}.published_at`)
+        .select(`${tableName}.id`, `${linkTable}.cabinet_id as entityCabinetId`)
+        .first();
+
+      if (!row) {
         strapi.log.warn(`[CABINET-POLICY] Entity ${contentType} ${id} not found`);
         return false;
       }
 
-      const entityCabinetId = entity.cabinet?.id;
+      const entityCabinetId = row.entityCabinetId;
 
       if (entityCabinetId && entityCabinetId !== primaryCabinetId) {
         strapi.log.warn(

@@ -3,9 +3,30 @@
  *
  * Tests for logAuditEvent utility.
  * Mocks the strapi global to verify behavior without a running instance.
+ *
+ * logAuditEvent uses setImmediate + transactionCtx.run for deadlock
+ * prevention (see audit-logger.ts for details). Tests must:
+ * 1. Mock @strapi/database/dist/transaction-context
+ * 2. Flush the event loop after each call to let setImmediate fire
  */
 
+// Mock the transaction context so setImmediate's callback can run
+// without requiring a real Strapi database connection.
+jest.mock('@strapi/database/dist/transaction-context', () => ({
+  transactionCtx: {
+    run: (_val, fn) => fn(),
+  },
+}));
+
 const { logAuditEvent } = require('../../src/utils/audit-logger');
+
+/**
+ * Flush setImmediate queue and microtasks so the deferred audit
+ * write completes before we assert on mock calls.
+ */
+function flushImmediate() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
 
 describe('logAuditEvent', () => {
   let mockStrapi;
@@ -37,7 +58,8 @@ describe('logAuditEvent', () => {
       detalii: 'Test audit',
     };
 
-    await logAuditEvent(mockStrapi, entry);
+    logAuditEvent(mockStrapi, entry);
+    await flushImmediate();
 
     expect(mockStrapi.documents).toHaveBeenCalledWith('api::audit-log.audit-log');
     const createCall = mockStrapi.documents().create;
@@ -63,7 +85,8 @@ describe('logAuditEvent', () => {
       entitate_id: '999',
     };
 
-    await logAuditEvent(mockStrapi, entry);
+    logAuditEvent(mockStrapi, entry);
+    await flushImmediate();
 
     const createCall = mockStrapi.documents().create;
     expect(createCall).toHaveBeenCalledWith({
@@ -92,8 +115,10 @@ describe('logAuditEvent', () => {
       entitate_id: '1',
     };
 
-    // Should not throw
-    await expect(logAuditEvent(mockStrapi, entry)).resolves.toBeUndefined();
+    // logAuditEvent returns void (fire-and-forget via setImmediate),
+    // so calling it should never throw synchronously.
+    expect(() => logAuditEvent(mockStrapi, entry)).not.toThrow();
+    await flushImmediate();
 
     // Should log the error
     expect(mockStrapi.log.error).toHaveBeenCalledWith(
@@ -106,11 +131,12 @@ describe('logAuditEvent', () => {
       create: jest.fn().mockRejectedValue(new Error('Constraint violation')),
     });
 
-    await logAuditEvent(mockStrapi, {
+    logAuditEvent(mockStrapi, {
       actiune: 'Update',
       entitate: 'factura',
       entitate_id: '42',
     });
+    await flushImmediate();
 
     expect(mockStrapi.log.error).toHaveBeenCalledWith(
       expect.stringContaining('Update on factura')
@@ -124,12 +150,13 @@ describe('logAuditEvent', () => {
     const actions = ['Create', 'Update', 'Delete', 'View'];
 
     for (const actiune of actions) {
-      await logAuditEvent(mockStrapi, {
+      logAuditEvent(mockStrapi, {
         actiune,
         entitate: 'pacient',
         entitate_id: '1',
       });
     }
+    await flushImmediate();
 
     expect(mockStrapi.documents().create).toHaveBeenCalledTimes(actions.length);
   });

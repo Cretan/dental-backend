@@ -51,7 +51,7 @@ export default {
   async afterCreate(event) {
     const ctx = strapi.requestContext?.get();
     const { result } = event;
-    await logAuditEvent(strapi, {
+    logAuditEvent(strapi, {
       actiune: "Create",
       entitate: "pacient",
       entitate_id: result?.documentId || String(result?.id || ""),
@@ -66,7 +66,7 @@ export default {
   async afterUpdate(event) {
     const ctx = strapi.requestContext?.get();
     const { result, params } = event;
-    await logAuditEvent(strapi, {
+    logAuditEvent(strapi, {
       actiune: "Update",
       entitate: "pacient",
       entitate_id: result?.documentId || String(result?.id || ""),
