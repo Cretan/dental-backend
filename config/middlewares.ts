@@ -38,6 +38,7 @@ if (process.env.NODE_ENV === "production" && corsOrigins.length === 0) {
 
 export default [
   "strapi::logger",
+  "global::request-logger",
   "strapi::errors",
   {
     name: "strapi::security",

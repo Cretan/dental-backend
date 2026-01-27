@@ -3,6 +3,7 @@ import bootstrapRoles from './bootstrap-roles';
 import { bootstrapIndexes } from './bootstrap-indexes';
 import { validateEnv } from './utils/env-validator';
 import { setupGracefulShutdown } from './utils/graceful-shutdown';
+import { createHealthCheckMiddleware } from './middlewares/health-check';
 
 export default {
   /**
@@ -14,6 +15,9 @@ export default {
   register({ strapi }) {
     // Validate required environment variables before proceeding
     validateEnv();
+
+    // Register health check endpoint (runs before middleware chain, no auth required)
+    strapi.server.use(createHealthCheckMiddleware(strapi));
 
     // Register policies
     Object.entries(policies).forEach(([name, policy]) => {
