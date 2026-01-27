@@ -2,10 +2,26 @@
  * Pacient Lifecycle Hooks
  * Auto-populates added_by field with authenticated user
  * Audit logging for create, update, delete operations
+ * Delete protection: prevents deletion when related records exist
  * Production-ready implementation using JWT token from request context
  */
 
+import { errors } from "@strapi/utils";
 import { logAuditEvent } from "../../../../utils/audit-logger";
+
+const { ApplicationError } = errors;
+
+/**
+ * Related entity link tables to check before allowing patient deletion.
+ * Each entry maps a Strapi v5 link table to its patient FK column and a
+ * human-readable label (Romanian + English) for the error message.
+ */
+const PATIENT_RELATIONS = [
+  { table: "vizitas_pacient_lnk", column: "pacient_id", label: "vizite (visits)" },
+  { table: "plan_trataments_pacient_lnk", column: "pacient_id", label: "planuri de tratament (treatment plans)" },
+  { table: "facturas_pacient_lnk", column: "pacient_id", label: "facturi (invoices)" },
+  { table: "platas_pacient_lnk", column: "pacient_id", label: "plăți (payments)" },
+];
 
 export default {
   async beforeCreate(event) {
@@ -60,6 +76,40 @@ export default {
       user: ctx?.state?.user?.id,
       cabinet: ctx?.state?.primaryCabinetId,
     });
+  },
+
+  async beforeDelete(event) {
+    const { where } = event.params;
+    const knex = strapi.db.connection;
+
+    // Resolve database IDs for the patient(s) being deleted
+    const patients = await strapi.db.query("api::pacient.pacient").findMany({
+      where,
+      select: ["id"],
+    });
+
+    if (patients.length === 0) return;
+
+    const patientIds = patients.map((p: { id: number }) => p.id);
+
+    // Check all related entities via their link tables
+    const related: string[] = [];
+    for (const { table, column, label } of PATIENT_RELATIONS) {
+      const result = await knex(table)
+        .whereIn(column, patientIds)
+        .count(`${column} as count`)
+        .first();
+      const count = Number(result?.count ?? 0);
+      if (count > 0) {
+        related.push(`${count} ${label}`);
+      }
+    }
+
+    if (related.length > 0) {
+      throw new ApplicationError(
+        `Cannot delete patient: has ${related.join(", ")}. Archive the patient instead.`
+      );
+    }
   },
 
   async afterDelete(event) {

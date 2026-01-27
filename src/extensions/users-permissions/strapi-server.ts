@@ -80,6 +80,15 @@ async function resolveCabinetId(strapi: any, userId: number): Promise<number | n
 }
 
 export default (plugin: any) => {
+  // -----------------------------------------------------------------------
+  // Override register: Disable open user registration
+  // Users must be created by an admin through the Strapi admin panel.
+  // This prevents unauthorized account creation via POST /api/auth/local/register.
+  // -----------------------------------------------------------------------
+  plugin.controllers.auth.register = async (ctx: any) => {
+    return ctx.forbidden('Registration is disabled. Contact your administrator.');
+  };
+
   // Save reference to the original callback controller
   const originalCallback = plugin.controllers.auth.callback;
 
