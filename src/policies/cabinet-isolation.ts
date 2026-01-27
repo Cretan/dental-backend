@@ -98,7 +98,7 @@ export default async (
   }
 
   // For other single resource access, verify cabinet ownership
-  if (id && method !== "POST" && ["pacient", "vizita", "plan-tratament", "price-list", "doctor", "factura", "plata", "audit-log"].includes(contentType)) {
+  if (id && method !== "POST" && ["pacient", "vizita", "plan-tratament", "price-list", "doctor", "factura", "plata", "audit-log", "radiografie"].includes(contentType)) {
     try {
       // Use lightweight knex query instead of Document Service to avoid
       // holding a pool connection that blocks the subsequent controller update.

@@ -90,6 +90,12 @@
       "target": "api::plata.plata",
       "mappedBy": "pacient"
     },
+    "radiografii": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::radiografie.radiografie",
+      "mappedBy": "pacient"
+    },
     "added_by": {
       "type": "relation",
       "relation": "oneToOne",

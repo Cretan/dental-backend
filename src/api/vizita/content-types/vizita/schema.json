@@ -68,6 +68,12 @@
       "type": "relation",
       "relation": "oneToOne",
       "target": "plugin::users-permissions.user"
+    },
+    "radiografii": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::radiografie.radiografie",
+      "mappedBy": "vizita"
     }
   }
 }
