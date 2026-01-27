@@ -85,6 +85,57 @@ async function resolveCabinetId(strapi: any, userId: number): Promise<number | n
 }
 
 export default {
+  /**
+   * GET /api/me
+   * Returns the authenticated user with their role populated.
+   * Strapi's built-in /users/me doesn't reliably return role data in v5,
+   * so this endpoint queries the user directly with `populate: { role: true }`.
+   *
+   * Auth is handled manually (auth: false in route config) to avoid needing
+   * a permissions-plugin entry for the "Authenticated" role.
+   */
+  async me(ctx) {
+    const authHeader = ctx.request.header.authorization;
+    const token = authHeader?.replace('Bearer ', '');
+
+    if (!token) {
+      return ctx.unauthorized('No token provided');
+    }
+
+    let decoded: DecodedToken | null = null;
+    try {
+      decoded = await strapi.plugins['users-permissions'].services.jwt.verify(token);
+    } catch {
+      return ctx.unauthorized('Invalid token');
+    }
+
+    if (!decoded || !decoded.id) {
+      return ctx.unauthorized('Invalid token payload');
+    }
+
+    const user = await strapi.db.query('plugin::users-permissions.user').findOne({
+      where: { id: decoded.id },
+      populate: { role: true },
+    });
+
+    if (!user) {
+      return ctx.unauthorized('User not found');
+    }
+
+    if (user.blocked) {
+      return ctx.unauthorized('User account is blocked');
+    }
+
+    return ctx.send({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      confirmed: user.confirmed,
+      blocked: user.blocked,
+      role: user.role,
+    });
+  },
+
   async refresh(ctx) {
     try {
       const authHeader = ctx.request.header.authorization;

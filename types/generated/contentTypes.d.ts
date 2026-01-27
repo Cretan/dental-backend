@@ -489,10 +489,24 @@ export interface ApiAuditLogAuditLog extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     date_noi: Schema.Attribute.JSON;
     date_vechi: Schema.Attribute.JSON;
-    detalii: Schema.Attribute.Text;
-    entitate: Schema.Attribute.String & Schema.Attribute.Required;
-    entitate_id: Schema.Attribute.String & Schema.Attribute.Required;
-    ip_address: Schema.Attribute.String;
+    detalii: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 2000;
+      }>;
+    entitate: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 100;
+      }>;
+    entitate_id: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 100;
+      }>;
+    ip_address: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 45;
+      }>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -525,7 +539,11 @@ export interface ApiCabinetCabinet extends Struct.CollectionTypeSchema {
       'oneToOne',
       'plugin::users-permissions.user'
     >;
-    adresa: Schema.Attribute.String & Schema.Attribute.Required;
+    adresa: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 300;
+      }>;
     angajati: Schema.Attribute.Relation<
       'oneToMany',
       'plugin::users-permissions.user'
@@ -540,7 +558,10 @@ export interface ApiCabinetCabinet extends Struct.CollectionTypeSchema {
     doctors: Schema.Attribute.Relation<'oneToMany', 'api::doctor.doctor'>;
     email: Schema.Attribute.String &
       Schema.Attribute.Required &
-      Schema.Attribute.Unique;
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 254;
+      }>;
     facturi: Schema.Attribute.Relation<'oneToMany', 'api::factura.factura'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -550,14 +571,20 @@ export interface ApiCabinetCabinet extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     nume_cabinet: Schema.Attribute.String &
       Schema.Attribute.Required &
-      Schema.Attribute.Unique;
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 200;
+      }>;
     pacienti: Schema.Attribute.Relation<'oneToMany', 'api::pacient.pacient'>;
     plati: Schema.Attribute.Relation<'oneToMany', 'api::plata.plata'>;
     program_functionare: Schema.Attribute.JSON & Schema.Attribute.Required;
     publishedAt: Schema.Attribute.DateTime;
     telefon: Schema.Attribute.String &
       Schema.Attribute.Required &
-      Schema.Attribute.Unique;
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 15;
+      }>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -583,7 +610,10 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    email: Schema.Attribute.Email;
+    email: Schema.Attribute.Email &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 254;
+      }>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -592,9 +622,20 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     nr_licenta: Schema.Attribute.String &
       Schema.Attribute.Required &
-      Schema.Attribute.Unique;
-    nume: Schema.Attribute.String & Schema.Attribute.Required;
-    prenume: Schema.Attribute.String & Schema.Attribute.Required;
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 50;
+      }>;
+    nume: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 100;
+      }>;
+    prenume: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 100;
+      }>;
     program_lucru: Schema.Attribute.JSON;
     publishedAt: Schema.Attribute.DateTime;
     specializare: Schema.Attribute.Enumeration<
@@ -609,7 +650,10 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
       ]
     > &
       Schema.Attribute.Required;
-    telefon: Schema.Attribute.String;
+    telefon: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 15;
+      }>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -665,8 +709,16 @@ export interface ApiFacturaFactura extends Struct.CollectionTypeSchema {
       'api::factura.factura'
     > &
       Schema.Attribute.Private;
-    numar_factura: Schema.Attribute.String & Schema.Attribute.Required;
-    observatii: Schema.Attribute.Text;
+    numar_factura: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 50;
+      }>;
+    observatii: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 2000;
+      }>;
     pacient: Schema.Attribute.Relation<'manyToOne', 'api::pacient.pacient'>;
     plan_tratament: Schema.Attribute.Relation<
       'manyToOne',
@@ -724,17 +776,29 @@ export interface ApiPacientPacient extends Struct.CollectionTypeSchema {
       'oneToOne',
       'plugin::users-permissions.user'
     >;
-    adresa: Schema.Attribute.String;
-    alergii: Schema.Attribute.String;
+    adresa: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 300;
+      }>;
+    alergii: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
     cabinet: Schema.Attribute.Relation<'manyToOne', 'api::cabinet.cabinet'>;
     cnp: Schema.Attribute.String &
       Schema.Attribute.Required &
-      Schema.Attribute.Unique;
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 13;
+      }>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     data_nasterii: Schema.Attribute.Date & Schema.Attribute.Required;
-    email: Schema.Attribute.Email;
+    email: Schema.Attribute.Email &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 254;
+      }>;
     facturi: Schema.Attribute.Relation<'oneToMany', 'api::factura.factura'>;
     istoric_medical: Schema.Attribute.Blocks;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
@@ -743,19 +807,31 @@ export interface ApiPacientPacient extends Struct.CollectionTypeSchema {
       'api::pacient.pacient'
     > &
       Schema.Attribute.Private;
-    nume: Schema.Attribute.String & Schema.Attribute.Required;
+    nume: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 100;
+      }>;
     planuri_tratamente: Schema.Attribute.Relation<
       'oneToMany',
       'api::plan-tratament.plan-tratament'
     >;
     plati: Schema.Attribute.Relation<'oneToMany', 'api::plata.plata'>;
-    prenume: Schema.Attribute.String & Schema.Attribute.Required;
+    prenume: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 100;
+      }>;
     publishedAt: Schema.Attribute.DateTime;
     status_pacient: Schema.Attribute.Enumeration<
       ['Activ', 'Inactiv', 'Arhivat']
     > &
       Schema.Attribute.DefaultTo<'Activ'>;
-    telefon: Schema.Attribute.String & Schema.Attribute.Required;
+    telefon: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 15;
+      }>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -833,10 +909,16 @@ export interface ApiPlataPlata extends Struct.CollectionTypeSchema {
       ['Cash', 'Card', 'Transfer', 'Asigurare']
     > &
       Schema.Attribute.Required;
-    observatii: Schema.Attribute.Text;
+    observatii: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 2000;
+      }>;
     pacient: Schema.Attribute.Relation<'manyToOne', 'api::pacient.pacient'>;
     publishedAt: Schema.Attribute.DateTime;
-    referinta: Schema.Attribute.String;
+    referinta: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 100;
+      }>;
     suma: Schema.Attribute.Decimal &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMax<
@@ -868,7 +950,10 @@ export interface ApiPriceListPriceList extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    descriere: Schema.Attribute.String;
+    descriere: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -931,7 +1016,10 @@ export interface ApiVizitaVizita extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     medic: Schema.Attribute.Relation<'manyToOne', 'api::doctor.doctor'>;
-    observatii: Schema.Attribute.String;
+    observatii: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 2000;
+      }>;
     pacient: Schema.Attribute.Relation<'manyToOne', 'api::pacient.pacient'>;
     publishedAt: Schema.Attribute.DateTime;
     status_vizita: Schema.Attribute.Enumeration<

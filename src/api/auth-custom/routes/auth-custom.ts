@@ -14,5 +14,20 @@ export default {
         ],
       },
     },
+    {
+      method: 'GET',
+      path: '/auth/me',
+      handler: 'auth-custom.me',
+      config: {
+        auth: false,
+        policies: [],
+        middlewares: [
+          {
+            name: 'global::rate-limit',
+            config: { maxRequests: 200, windowMs: 60000 },
+          },
+        ],
+      },
+    },
   ],
 };

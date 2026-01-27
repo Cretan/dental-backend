@@ -77,7 +77,10 @@ export interface TratamentDinteTratamentDinte extends Struct.ComponentSchema {
         'dinte_3.8',
       ]
     >;
-    observatii: Schema.Attribute.String;
+    observatii: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
     pret: Schema.Attribute.Decimal &
       Schema.Attribute.SetMinMax<
         {

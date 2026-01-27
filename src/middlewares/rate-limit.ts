@@ -23,13 +23,15 @@ export default (config: { maxRequests?: number; windowMs?: number } = {}) => {
 
   return async (ctx: any, next: () => Promise<void>) => {
     const ip = ctx.request.ip || ctx.ip || 'unknown';
+    // Key by IP + route path so different endpoints have separate buckets
+    const key = `${ip}:${ctx.request.path}`;
     const now = Date.now();
 
-    let record = requestCounts.get(ip);
+    let record = requestCounts.get(key);
 
     if (!record || now > record.resetTime) {
       record = { count: 1, resetTime: now + windowMs };
-      requestCounts.set(ip, record);
+      requestCounts.set(key, record);
     } else {
       record.count++;
     }
