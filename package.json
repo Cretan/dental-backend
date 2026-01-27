@@ -16,7 +16,8 @@
     "test": "jest --forceExit --detectOpenHandles",
     "test:unit": "jest tests/unit --forceExit",
     "test:integration": "jest tests/integration --forceExit --detectOpenHandles",
-    "test:coverage": "jest --coverage --forceExit --detectOpenHandles"
+    "test:coverage": "jest --coverage --forceExit --detectOpenHandles",
+    "docs:generate": "strapi openapi generate --output ./public/swagger-spec.json"
   },
   "dependencies": {
     "@strapi/plugin-cloud": "5.32.0",
