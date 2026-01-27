@@ -123,6 +123,27 @@ export function sanitizeTextFields(data: Record<string, any>, fields: string[]):
 }
 
 /**
+ * Validate that one date is not after another.
+ * Returns an error message string if invalid, null if valid.
+ * Both dates should be ISO date strings (YYYY-MM-DD) or Date-parseable strings.
+ */
+export function validateDateOrder(
+  earlier: string | null | undefined,
+  later: string | null | undefined,
+  labelA: string,
+  labelB: string
+): string | null {
+  if (!earlier || !later) return null;
+  const a = new Date(earlier);
+  const b = new Date(later);
+  if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
+  if (b < a) {
+    return `${labelB} cannot be before ${labelA}`;
+  }
+  return null;
+}
+
+/**
  * Calculate age from birth date
  */
 export function calculateAge(birthDate: string): number {

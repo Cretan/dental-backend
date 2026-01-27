@@ -3,10 +3,13 @@
  * Auto-populates added_by field with authenticated user
  * Updates invoice status when payment is recorded
  * Audit logging for create, update, delete operations
- * Production-ready implementation
+ * Data integrity: patient mismatch, archived patient, overpayment prevention
  */
 
+import { errors } from "@strapi/utils";
 import { logAuditEvent } from "../../../../utils/audit-logger";
+
+const { ApplicationError } = errors;
 
 export default {
   async beforeCreate(event) {
@@ -25,6 +28,99 @@ export default {
     // Auto-populate data_plata if not provided
     if (!data.data_plata) {
       data.data_plata = new Date().toISOString().split("T")[0];
+    }
+
+    // GAP-6: Block payment creation for archived patients
+    if (data.pacient) {
+      const patientId =
+        typeof data.pacient === "object" ? data.pacient.id : data.pacient;
+      if (patientId) {
+        const patient = await strapi.db
+          .query("api::pacient.pacient")
+          .findOne({
+            where: { id: patientId },
+            select: ["status_pacient"],
+          });
+
+        if (patient && patient.status_pacient === "Arhivat") {
+          throw new ApplicationError(
+            "Cannot create payment for archived patient. Reactivate the patient first."
+          );
+        }
+      }
+    }
+
+    // Invoice-related validations (GAP-5, GAP-9)
+    if (data.factura) {
+      const facturaId =
+        typeof data.factura === "object" ? data.factura.id : data.factura;
+      if (facturaId) {
+        const factura = await strapi.db
+          .query("api::factura.factura")
+          .findOne({
+            where: { id: facturaId },
+            select: ["id", "total", "status", "pacient"],
+          });
+
+        if (factura) {
+          // GAP-9: Block payment to cancelled invoice
+          if (factura.status === "Anulata") {
+            throw new ApplicationError(
+              "Cannot add payment to a cancelled invoice."
+            );
+          }
+
+          // GAP-5: Check payment patient matches invoice patient
+          if (data.pacient && factura.pacient) {
+            const paymentPatientId =
+              typeof data.pacient === "object"
+                ? data.pacient.id
+                : data.pacient;
+            const knex = strapi.db.connection;
+            const invoicePatientLink = await knex("facturas_pacient_lnk")
+              .where({ factura_id: facturaId })
+              .select("pacient_id")
+              .first();
+
+            if (
+              invoicePatientLink &&
+              invoicePatientLink.pacient_id &&
+              String(invoicePatientLink.pacient_id) !==
+                String(paymentPatientId)
+            ) {
+              throw new ApplicationError(
+                "Payment patient does not match invoice patient."
+              );
+            }
+          }
+
+          // GAP-9: Overpayment prevention
+          const paymentAmount = parseFloat(String(data.suma)) || 0;
+          const invoiceTotal = parseFloat(String(factura.total)) || 0;
+
+          if (invoiceTotal > 0) {
+            // Sum existing payments for this invoice
+            const existingPayments = await strapi.db
+              .query("api::plata.plata")
+              .findMany({
+                where: { factura: facturaId },
+                select: ["suma"],
+              });
+
+            const totalPaid = existingPayments.reduce(
+              (sum, p) => sum + (parseFloat(String(p.suma)) || 0),
+              0
+            );
+
+            const remaining = invoiceTotal - totalPaid;
+            if (paymentAmount > remaining + 0.01) {
+              throw new ApplicationError(
+                `Payment amount (${paymentAmount.toFixed(2)}) exceeds remaining balance (${remaining.toFixed(2)}).`
+              );
+            }
+          }
+        }
+      }
     }
   },
 

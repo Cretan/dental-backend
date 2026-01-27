@@ -2,10 +2,13 @@
  * Doctor Lifecycle Hooks
  * Auto-populates added_by field with authenticated user
  * Audit logging for create, update, delete operations
- * Production-ready implementation using JWT token from request context
+ * Data integrity: delete cascade protection (linked visits)
  */
 
+import { errors } from "@strapi/utils";
 import { logAuditEvent } from "../../../../utils/audit-logger";
+
+const { ApplicationError } = errors;
 
 export default {
   async beforeCreate(event) {
@@ -28,6 +31,33 @@ export default {
     if (data.added_by !== undefined) {
       delete data.added_by;
       strapi.log.warn("Attempt to modify added_by field blocked");
+    }
+  },
+
+  async beforeDelete(event) {
+    const { where } = event.params;
+    const knex = strapi.db.connection;
+
+    // GAP-1: Block deletion if doctor has linked visits
+    const doctors = await strapi.db.query("api::doctor.doctor").findMany({
+      where,
+      select: ["id"],
+    });
+
+    if (doctors.length === 0) return;
+
+    const doctorIds = doctors.map((d: { id: number }) => d.id);
+
+    const result = await knex("vizitas_medic_lnk")
+      .whereIn("doctor_id", doctorIds)
+      .count("doctor_id as count")
+      .first();
+
+    const count = Number(result?.count ?? 0);
+    if (count > 0) {
+      throw new ApplicationError(
+        `Cannot delete doctor: has ${count} linked visit(s). Remove the doctor from visits first.`
+      );
     }
   },
 

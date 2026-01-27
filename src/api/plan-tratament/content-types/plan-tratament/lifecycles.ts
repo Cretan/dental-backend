@@ -2,10 +2,13 @@
  * Plan Tratament Lifecycle Hooks
  * Auto-populates added_by field with authenticated user
  * Audit logging for create, update, delete operations
- * Production-ready implementation using JWT token from request context
+ * Data integrity: archived patient check, delete cascade protection
  */
 
+import { errors } from "@strapi/utils";
 import { logAuditEvent } from "../../../../utils/audit-logger";
+
+const { ApplicationError } = errors;
 
 export default {
   async beforeCreate(event) {
@@ -25,6 +28,26 @@ export default {
     if (!data.data_creare) {
       data.data_creare = new Date().toISOString();
     }
+
+    // GAP-6: Block treatment plan creation for archived patients
+    if (data.pacient) {
+      const patientId =
+        typeof data.pacient === "object" ? data.pacient.id : data.pacient;
+      if (patientId) {
+        const patient = await strapi.db
+          .query("api::pacient.pacient")
+          .findOne({
+            where: { id: patientId },
+            select: ["status_pacient"],
+          });
+
+        if (patient && patient.status_pacient === "Arhivat") {
+          throw new ApplicationError(
+            "Cannot create treatment plan for archived patient. Reactivate the patient first."
+          );
+        }
+      }
+    }
   },
 
   async beforeUpdate(event) {
@@ -33,6 +56,35 @@ export default {
     if (data.added_by !== undefined) {
       delete data.added_by;
       strapi.log.warn("Attempt to modify added_by field blocked");
+    }
+  },
+
+  async beforeDelete(event) {
+    const { where } = event.params;
+    const knex = strapi.db.connection;
+
+    // GAP-1: Block deletion if treatment plan has linked invoices
+    const plans = await strapi.db
+      .query("api::plan-tratament.plan-tratament")
+      .findMany({
+        where,
+        select: ["id"],
+      });
+
+    if (plans.length === 0) return;
+
+    const planIds = plans.map((p: { id: number }) => p.id);
+
+    const result = await knex("facturas_plan_tratament_lnk")
+      .whereIn("plan_tratament_id", planIds)
+      .count("plan_tratament_id as count")
+      .first();
+
+    const count = Number(result?.count ?? 0);
+    if (count > 0) {
+      throw new ApplicationError(
+        `Cannot delete treatment plan: has ${count} linked invoice(s). Delete the invoices first.`
+      );
     }
   },
 
