@@ -18,6 +18,7 @@ export default {
             config: {
               roles: [
                 'super_admin',
+                'clinic_admin',
                 'cabinet_admin',
                 'dentist',
                 'receptionist',
@@ -45,7 +46,7 @@ export default {
           {
             name: 'global::role-check',
             config: {
-              roles: ['super_admin', 'cabinet_admin', 'dentist'],
+              roles: ['super_admin', 'clinic_admin', 'cabinet_admin', 'dentist'],
             },
           },
         ],

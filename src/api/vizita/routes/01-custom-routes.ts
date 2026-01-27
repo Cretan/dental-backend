@@ -17,6 +17,7 @@ export default {
             config: {
               roles: [
                 'super_admin',
+                'clinic_admin',
                 'cabinet_admin',
                 'dentist',
                 'receptionist',
@@ -38,6 +39,7 @@ export default {
             config: {
               roles: [
                 'super_admin',
+                'clinic_admin',
                 'cabinet_admin',
                 'dentist',
                 'receptionist',

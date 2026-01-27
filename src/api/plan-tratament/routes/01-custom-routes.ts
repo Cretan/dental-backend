@@ -11,7 +11,7 @@ export default {
           {
             name: 'global::role-check',
             config: {
-              roles: ['super_admin', 'cabinet_admin', 'dentist'],
+              roles: ['super_admin', 'clinic_admin', 'cabinet_admin', 'dentist'],
             },
           },
         ],
@@ -27,7 +27,7 @@ export default {
           {
             name: 'global::role-check',
             config: {
-              roles: ['super_admin', 'cabinet_admin', 'dentist'],
+              roles: ['super_admin', 'clinic_admin', 'cabinet_admin', 'dentist'],
             },
           },
         ],
@@ -43,7 +43,7 @@ export default {
           {
             name: 'global::role-check',
             config: {
-              roles: ['super_admin', 'cabinet_admin'],
+              roles: ['super_admin', 'clinic_admin', 'cabinet_admin'],
             },
           },
         ],
@@ -59,7 +59,7 @@ export default {
           {
             name: 'global::role-check',
             config: {
-              roles: ['super_admin', 'cabinet_admin', 'accountant'],
+              roles: ['super_admin', 'clinic_admin', 'cabinet_admin', 'accountant'],
             },
           },
         ],
