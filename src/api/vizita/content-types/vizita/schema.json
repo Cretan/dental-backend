@@ -56,7 +56,8 @@
       "repeatable": true
     },
     "observatii": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 2000
     },
     "medic": {
       "type": "relation",

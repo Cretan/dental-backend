@@ -59,6 +59,7 @@ export default [
       frameguard: {
         action: "deny",
       },
+      xContentTypeOptions: true,
     },
   },
   {

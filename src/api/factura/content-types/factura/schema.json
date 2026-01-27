@@ -13,7 +13,9 @@
   "attributes": {
     "numar_factura": {
       "type": "string",
-      "required": true
+      "required": true,
+      "unique": true,
+      "maxLength": 50
     },
     "data_emitere": {
       "type": "date",
@@ -61,7 +63,8 @@
       "min": 0
     },
     "observatii": {
-      "type": "text"
+      "type": "text",
+      "maxLength": 2000
     },
     "linii_factura": {
       "type": "component",

@@ -232,9 +232,9 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
     const { id } = ctx.params;
 
     try {
-      // Fetch the treatment plan with patient info
+      // Fetch the treatment plan with patient info (id from custom route is documentId)
       const plan = await strapi.db.query('api::plan-tratament.plan-tratament').findOne({
-        where: { id },
+        where: { documentId: id },
         populate: ['pacient', 'cabinet', 'tratamente']
       });
 
@@ -353,9 +353,9 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
     }
 
     try {
-      // Get the treatment plan
+      // Get the treatment plan (id from custom route is documentId)
       const plan = await strapi.db.query('api::plan-tratament.plan-tratament').findOne({
-        where: { id },
+        where: { documentId: id },
         populate: ['tratamente']
       });
 
@@ -373,7 +373,7 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
 
       // Update the plan with new total
       await strapi.db.query('api::plan-tratament.plan-tratament').update({
-        where: { id },
+        where: { documentId: id },
         data: {
           pret_total: parseFloat(totalAfterDiscount.toFixed(2)) // Store as number, not string
         }
@@ -402,9 +402,9 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
     const { initial_tratamente } = ctx.request.body;
 
     try {
-      // Get the treatment plan with all relations
+      // Get the treatment plan with all relations (id from custom route is documentId)
       const plan = await strapi.db.query('api::plan-tratament.plan-tratament').findOne({
-        where: { id },
+        where: { documentId: id },
         populate: ['pacient', 'cabinet', 'tratamente']
       });
 
@@ -413,7 +413,7 @@ export default factories.createCoreController('api::plan-tratament.plan-tratamen
       }
 
       const tratamente = plan.tratamente || [];
-      
+
       // Calculate which procedures are "new" (if initial state provided)
       let newProcedures = tratamente;
       if (initial_tratamente && Array.isArray(initial_tratamente)) {

@@ -34,13 +34,16 @@ export default (config: { maxRequests?: number; windowMs?: number } = {}) => {
     // Set rate limit headers
     ctx.set('X-RateLimit-Limit', String(maxRequests));
     ctx.set('X-RateLimit-Remaining', String(Math.max(0, maxRequests - record.count)));
+    ctx.set('X-RateLimit-Reset', String(Math.ceil(record.resetTime / 1000)));
 
     if (record.count > maxRequests) {
+      const retryAfterSeconds = Math.ceil((record.resetTime - now) / 1000);
+      ctx.set('Retry-After', String(retryAfterSeconds));
       ctx.status = 429;
       ctx.body = {
         error: 'Too Many Requests',
         message: 'Rate limit exceeded. Please try again later.',
-        retryAfter: Math.ceil((record.resetTime - now) / 1000),
+        retryAfter: retryAfterSeconds,
       };
       return;
     }

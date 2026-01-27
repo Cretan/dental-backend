@@ -14,21 +14,25 @@
     "nume_cabinet": {
       "type": "string",
       "required": true,
-      "unique": true
+      "unique": true,
+      "maxLength": 200
     },
     "adresa": {
       "type": "string",
-      "required": true
+      "required": true,
+      "maxLength": 300
     },
     "telefon": {
       "type": "string",
       "required": true,
-      "unique": true
+      "unique": true,
+      "maxLength": 15
     },
     "email": {
       "type": "string",
       "required": true,
-      "unique": true
+      "unique": true,
+      "maxLength": 254
     },
     "administrator_principal": {
       "type": "relation",

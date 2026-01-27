@@ -62,7 +62,8 @@
       "min": 0
     },
     "observatii": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 500
     },
     "status_tratament": {
       "type": "enumeration",

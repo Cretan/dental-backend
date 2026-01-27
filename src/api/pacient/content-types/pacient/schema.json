@@ -13,36 +13,43 @@
   "attributes": {
     "nume": {
       "type": "string",
-      "required": true
+      "required": true,
+      "maxLength": 100
     },
     "prenume": {
       "type": "string",
-      "required": true
+      "required": true,
+      "maxLength": 100
     },
     "cnp": {
       "type": "string",
       "required": true,
-      "unique": true
+      "unique": true,
+      "maxLength": 13
     },
     "data_nasterii": {
       "type": "date",
       "required": true
     },
     "adresa": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 300
     },
     "telefon": {
       "type": "string",
-      "required": true
+      "required": true,
+      "maxLength": 15
     },
     "email": {
-      "type": "email"
+      "type": "email",
+      "maxLength": 254
     },
     "istoric_medical": {
       "type": "blocks"
     },
     "alergii": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 500
     },
     "cabinet": {
       "type": "relation",

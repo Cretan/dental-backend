@@ -37,7 +37,8 @@
       "target": "api::cabinet.cabinet"
     },
     "descriere": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 500
     },
     "activ": {
       "type": "boolean",

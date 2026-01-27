@@ -31,10 +31,12 @@
       ]
     },
     "referinta": {
-      "type": "string"
+      "type": "string",
+      "maxLength": 100
     },
     "observatii": {
-      "type": "text"
+      "type": "text",
+      "maxLength": 2000
     },
     "factura": {
       "type": "relation",

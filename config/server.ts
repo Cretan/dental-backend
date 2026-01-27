@@ -4,4 +4,9 @@ export default ({ env }) => ({
   app: {
     keys: env.array('APP_KEYS'),
   },
+  http: {
+    serverOptions: {
+      requestTimeout: env.int('REQUEST_TIMEOUT', 30000), // 30 seconds
+    },
+  },
 });
