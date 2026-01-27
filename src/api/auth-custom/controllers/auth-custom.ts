@@ -2,7 +2,7 @@
  * Auth Custom Controller
  *
  * Provides token refresh functionality.
- * Accepts recently-expired tokens (within 24h grace period) and issues
+ * Accepts recently-expired tokens (within 10min grace period) and issues
  * new JWT tokens enriched with cabinetId.
  */
 
@@ -15,8 +15,9 @@ interface DecodedToken {
   iat?: number;
 }
 
-// Grace period: accept expired tokens up to 1 hour old
-const REFRESH_GRACE_PERIOD_SECONDS = 60 * 60;
+// Grace period: accept expired tokens up to 10 minutes old
+// Kept short to limit exposure from stolen tokens in a medical application
+const REFRESH_GRACE_PERIOD_SECONDS = 10 * 60;
 
 /**
  * Resolve the user's primary cabinet ID from link tables.

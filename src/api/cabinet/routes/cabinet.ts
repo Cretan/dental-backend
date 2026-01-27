@@ -9,6 +9,7 @@ export default factories.createCoreRouter("api::cabinet.cabinet", {
   config: {
     find: {
       policies: [
+        "global::cabinet-isolation",
         {
           name: "global::role-check",
           config: {
@@ -27,6 +28,7 @@ export default factories.createCoreRouter("api::cabinet.cabinet", {
     },
     findOne: {
       policies: [
+        "global::cabinet-isolation",
         {
           name: "global::role-check",
           config: {

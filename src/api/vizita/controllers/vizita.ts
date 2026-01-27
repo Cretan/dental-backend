@@ -223,13 +223,21 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
    * Get upcoming visits (future appointments)
    */
   async upcoming(ctx) {
+    const cabinetId = ctx.state.primaryCabinetId;
+
+    // SECURITY: Fail closed - require cabinet context
+    if (!cabinetId) {
+      return ctx.forbidden('No cabinet context available');
+    }
+
     try {
       const now = new Date().toISOString();
-      
+
       const visits = await strapi.db.query('api::vizita.vizita').findMany({
         where: {
           data_programare: { $gte: now },
-          status_vizita: { $in: ['Programata', 'Confirmata'] }
+          status_vizita: { $in: ['Programata', 'Confirmata'] },
+          cabinet: { id: { $eq: cabinetId } },
         },
         orderBy: { data_programare: 'asc' },
         populate: ['pacient', 'cabinet'],
@@ -248,15 +256,36 @@ export default factories.createCoreController('api::vizita.vizita', ({ strapi })
    */
   async history(ctx) {
     const { patientId } = ctx.params;
+    const cabinetId = ctx.state.primaryCabinetId;
 
     if (!patientId) {
       return ctx.badRequest('Patient ID is required');
     }
 
+    // SECURITY: Fail closed - require cabinet context
+    if (!cabinetId) {
+      return ctx.forbidden('No cabinet context available');
+    }
+
     try {
+      // SECURITY: Verify patient belongs to user's cabinet before returning history
+      const patient = await strapi.db.query('api::pacient.pacient').findOne({
+        where: { id: patientId },
+        populate: ['cabinet'],
+      });
+
+      if (!patient) {
+        return ctx.notFound('Patient not found');
+      }
+
+      if (!patient.cabinet || Number(patient.cabinet.id) !== Number(cabinetId)) {
+        return ctx.forbidden('Patient does not belong to your cabinet');
+      }
+
       const visits = await strapi.db.query('api::vizita.vizita').findMany({
         where: {
-          pacient: patientId
+          pacient: patientId,
+          cabinet: { id: { $eq: cabinetId } },
         },
         orderBy: { data_programare: 'desc' },
         populate: ['cabinet', 'tratamente'],

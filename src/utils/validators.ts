@@ -89,11 +89,15 @@ export function validatePhone(phone: string): boolean {
 
 /**
  * Validate email format
+ * Uses a stricter pattern that validates domain structure:
+ * - Local part allows standard characters
+ * - Domain labels must start/end with alphanumeric
+ * - TLD must be at least 2 characters
  */
 export function validateEmail(email: string): boolean {
   if (!email) return false;
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
   return emailRegex.test(email);
 }
 
