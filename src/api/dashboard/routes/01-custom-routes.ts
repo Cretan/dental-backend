@@ -10,7 +10,21 @@ export default {
       path: '/dashboard/stats',
       handler: 'dashboard.stats',
       config: {
-        policies: [],
+        policies: [
+          'global::cabinet-isolation',
+          {
+            name: 'global::role-check',
+            config: {
+              roles: [
+                'super_admin',
+                'cabinet_admin',
+                'dentist',
+                'receptionist',
+                'accountant',
+              ],
+            },
+          },
+        ],
       },
     },
   ],

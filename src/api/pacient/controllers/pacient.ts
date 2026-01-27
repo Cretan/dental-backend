@@ -27,10 +27,7 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
   async create(ctx) {
     const { data } = ctx.request.body;
 
-    strapi.log.info(`[PACIENT CREATE] Starting patient creation...`);
-    strapi.log.info(`[PACIENT CREATE] Request data:`, JSON.stringify(data, null, 2));
-    strapi.log.info(`[PACIENT CREATE] User ID: ${ctx.state.user?.id}`);
-    strapi.log.info(`[PACIENT CREATE] User cabinet: ${ctx.state.user?.cabinet}`);
+    strapi.log.info(`[PACIENT CREATE] User ${ctx.state.user?.id} creating patient`);
 
     // Input length validation (prevent abuse)
     const lengthError = validateFieldLengths(data);
@@ -40,19 +37,19 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
 
     // Validation: cnp (Romanian Personal Identification Number)
     if (!data.cnp || !validateCnp(data.cnp)) {
-      strapi.log.error(`[PACIENT CREATE] cnp validation failed: ${data.cnp}`);
+      strapi.log.error(`[PACIENT CREATE] CNP validation failed for user ${ctx.state.user?.id}`);
       return ctx.badRequest('cnp invalid. Must be 13 digits with valid checksum.');
     }
 
     // Validation: Phone (Romanian format)
     if (!data.telefon || !validatePhone(data.telefon)) {
-      strapi.log.error(`[PACIENT CREATE] Phone validation failed: ${data.telefon}`);
+      strapi.log.error(`[PACIENT CREATE] Phone validation failed for user ${ctx.state.user?.id}`);
       return ctx.badRequest('Phone number invalid. Use format: +40700000000 or 0700000000');
     }
 
     // Validation: Email (if provided)
     if (data.email && !validateEmail(data.email)) {
-      strapi.log.error(`[PACIENT CREATE] Email validation failed: ${data.email}`);
+      strapi.log.error(`[PACIENT CREATE] Email validation failed for user ${ctx.state.user?.id}`);
       return ctx.badRequest('Email invalid format');
     }
 
@@ -64,29 +61,27 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
 
     const age = calculateAge(data.data_nasterii);
     if (age < 0 || age > 120) {
-      strapi.log.error(`[PACIENT CREATE] Invalid age: ${age}`);
+      strapi.log.error(`[PACIENT CREATE] Invalid birth date for user ${ctx.state.user?.id}`);
       return ctx.badRequest('Invalid birth date');
     }
 
     // Validation: Required fields
     if (!data.nume || !data.prenume) {
-      strapi.log.error(`[PACIENT CREATE] Required fields missing: nume=${data.nume}, prenume=${data.prenume}`);
+      strapi.log.error(`[PACIENT CREATE] Required fields missing for user ${ctx.state.user?.id}`);
       return ctx.badRequest('Last name (nume) and first name (prenume) are required');
     }
 
     // All validations passed - create patient
     try {
-      strapi.log.info(`[PACIENT CREATE] All validations passed, creating patient...`);
       const response = await super.create(ctx);
-      strapi.log.info(`[PACIENT CREATE] SUCCESS! Patient created with ID: ${response.data.id}`);
-      strapi.log.info(`[PACIENT CREATE] Created patient:`, JSON.stringify(response.data, null, 2));
+      strapi.log.info(`[PACIENT CREATE] Patient created with ID: ${response.data.id}`);
       return response;
     } catch (error: unknown) {
       strapi.log.error(`[PACIENT CREATE] DATABASE ERROR:`, error);
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes('unique')) {
-        strapi.log.error(`[PACIENT CREATE] cnp already exists: ${data.cnp}`);
-        return ctx.badRequest('cnp already exists in database');
+        strapi.log.error(`[PACIENT CREATE] Duplicate entry detected for patient`);
+        return ctx.badRequest('A patient with this information already exists');
       }
       throw error;
     }
@@ -125,7 +120,7 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes('unique')) {
-        return ctx.badRequest('cnp or phone already exists');
+        return ctx.badRequest('A patient with this information already exists');
       }
       throw error;
     }
@@ -161,10 +156,11 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
         ],
       };
 
-      // Apply cabinet isolation
-      if (cabinetId) {
-        where.cabinet = { id: { $eq: cabinetId } };
+      // SECURITY: Fail closed - require cabinet context
+      if (!cabinetId) {
+        return ctx.forbidden('No cabinet context available');
       }
+      where.cabinet = { id: { $eq: cabinetId } };
 
       const results = await strapi.db.query('api::pacient.pacient').findMany({
         where,
@@ -194,19 +190,19 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
       const dbClient: string = strapi.config.get('database.connection.client', 'sqlite');
       const cabinetId = ctx.state.primaryCabinetId;
 
-      // Total count with cabinet filter
-      let totalPatients: number;
-      if (cabinetId) {
-        const countResult = await knex('pacients')
-          .join('pacients_cabinet_lnk', 'pacients.id', 'pacients_cabinet_lnk.pacient_id')
-          .where('pacients_cabinet_lnk.cabinet_id', cabinetId)
-          .whereNotNull('pacients.published_at')
-          .count('pacients.id as count')
-          .first();
-        totalPatients = Number(countResult?.count ?? 0);
-      } else {
-        totalPatients = await strapi.db.query('api::pacient.pacient').count();
+      // SECURITY: Fail closed - require cabinet context to prevent cross-tenant data leak
+      if (!cabinetId) {
+        return ctx.forbidden('No cabinet context available');
       }
+
+      // Total count with cabinet filter
+      const countResult = await knex('pacients')
+        .join('pacients_cabinet_lnk', 'pacients.id', 'pacients_cabinet_lnk.pacient_id')
+        .where('pacients_cabinet_lnk.cabinet_id', cabinetId)
+        .whereNotNull('pacients.published_at')
+        .count('pacients.id as count')
+        .first();
+      const totalPatients: number = Number(countResult?.count ?? 0);
 
       // Age distribution - use DB-specific date functions
       let ageDistribution = [];

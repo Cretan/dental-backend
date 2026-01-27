@@ -1,6 +1,6 @@
 /**
  * Custom routes for visit management
- * Secured with session-auth middleware and cabinet-isolation policy
+ * Secured with session-auth middleware, cabinet-isolation, and role-check policies
  */
 
 export default {
@@ -10,7 +10,20 @@ export default {
       path: '/vizitas/upcoming',
       handler: 'vizita.upcoming',
       config: {
-        policies: ['global::cabinet-isolation'],
+        policies: [
+          'global::cabinet-isolation',
+          {
+            name: 'global::role-check',
+            config: {
+              roles: [
+                'super_admin',
+                'cabinet_admin',
+                'dentist',
+                'receptionist',
+              ],
+            },
+          },
+        ],
       },
     },
     {
@@ -18,7 +31,20 @@ export default {
       path: '/vizitas/history/:patientId',
       handler: 'vizita.history',
       config: {
-        policies: ['global::cabinet-isolation'],
+        policies: [
+          'global::cabinet-isolation',
+          {
+            name: 'global::role-check',
+            config: {
+              roles: [
+                'super_admin',
+                'cabinet_admin',
+                'dentist',
+                'receptionist',
+              ],
+            },
+          },
+        ],
       },
     },
   ],

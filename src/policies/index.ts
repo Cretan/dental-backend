@@ -3,10 +3,12 @@ import manageOwnCabinet from "./manage-own-cabinet";
 import canUpdateOwnCabinet from "./can-update-own-cabinet-users";
 import cabinetIsolation from "./cabinet-isolation";
 import roleCheck from "./role-check";
+import denyAll from "./deny-all";
 
 export default {
   "manage-own-cabinet": manageOwnCabinet,
   "can-update-own-cabinet-users": canUpdateOwnCabinet,
   "cabinet-isolation": cabinetIsolation,
   "role-check": roleCheck,
+  "deny-all": denyAll,
 };
