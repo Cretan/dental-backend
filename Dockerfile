@@ -79,7 +79,6 @@ COPY --chown=strapi:strapi ./database ./database
 COPY --chown=strapi:strapi ./public ./public
 COPY --chown=strapi:strapi ./src ./src
 COPY --chown=strapi:strapi ./types ./types
-COPY --chown=strapi:strapi ./.env.example ./.env.example
 
 # Create directories for uploads and cache
 RUN mkdir -p ./public/uploads && \

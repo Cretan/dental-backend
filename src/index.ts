@@ -1,7 +1,8 @@
-// import type { Core } from '@strapi/strapi';
 import policies from './policies';
 import bootstrapRoles from './bootstrap-roles';
 import { bootstrapIndexes } from './bootstrap-indexes';
+import { validateEnv } from './utils/env-validator';
+import { setupGracefulShutdown } from './utils/graceful-shutdown';
 
 export default {
   /**
@@ -11,6 +12,9 @@ export default {
    * This gives you an opportunity to extend code.
    */
   register({ strapi }) {
+    // Validate required environment variables before proceeding
+    validateEnv();
+
     // Register policies
     Object.entries(policies).forEach(([name, policy]) => {
       strapi.policy(name, policy);
@@ -38,5 +42,8 @@ export default {
         error instanceof Error ? error.message : String(error)
       );
     }
+
+    // Register graceful shutdown handlers (after all setup is complete)
+    setupGracefulShutdown(strapi);
   },
 };

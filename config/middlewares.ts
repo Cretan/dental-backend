@@ -1,3 +1,33 @@
+// Build CORS origins array based on environment
+const corsOrigins: string[] = [];
+
+// Parse CORS_ORIGINS (comma-separated list for production deployments)
+if (process.env.CORS_ORIGINS) {
+  corsOrigins.push(
+    ...process.env.CORS_ORIGINS.split(",")
+      .map((origin) => origin.trim().replace(/\/+$/, ""))
+      .filter(Boolean)
+  );
+}
+
+// FRONTEND_URL as single-origin fallback (backward compatible)
+if (process.env.FRONTEND_URL) {
+  const frontendUrl = process.env.FRONTEND_URL.trim().replace(/\/+$/, "");
+  if (frontendUrl && !corsOrigins.includes(frontendUrl)) {
+    corsOrigins.push(frontendUrl);
+  }
+}
+
+// Development origins (non-production only)
+if (process.env.NODE_ENV !== "production") {
+  const devOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
+  devOrigins.forEach((origin) => {
+    if (!corsOrigins.includes(origin)) {
+      corsOrigins.push(origin);
+    }
+  });
+}
+
 export default [
   "strapi::logger",
   "strapi::errors",
@@ -19,14 +49,12 @@ export default [
   {
     name: "strapi::cors",
     config: {
-      origin: [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        process.env.FRONTEND_URL,
-      ].filter(Boolean),
+      origin: corsOrigins,
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
       headers: ["Content-Type", "Authorization", "Origin", "Accept"],
       keepHeaderOnError: true,
+      credentials: true,
+      maxAge: 86400,
     },
   },
   {
