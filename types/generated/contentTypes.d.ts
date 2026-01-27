@@ -823,6 +823,10 @@ export interface ApiPacientPacient extends Struct.CollectionTypeSchema {
         maxLength: 100;
       }>;
     publishedAt: Schema.Attribute.DateTime;
+    radiografii: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::radiografie.radiografie'
+    >;
     status_pacient: Schema.Attribute.Enumeration<
       ['Activ', 'Inactiv', 'Arhivat']
     > &
@@ -988,6 +992,53 @@ export interface ApiPriceListPriceList extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiRadiografieRadiografie extends Struct.CollectionTypeSchema {
+  collectionName: 'radiografii';
+  info: {
+    displayName: 'Radiografie';
+    pluralName: 'radiografii';
+    singularName: 'radiografie';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    added_by: Schema.Attribute.Relation<
+      'oneToOne',
+      'plugin::users-permissions.user'
+    >;
+    cabinet: Schema.Attribute.Relation<'manyToOne', 'api::cabinet.cabinet'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    data_radiografie: Schema.Attribute.Date & Schema.Attribute.Required;
+    descriere: Schema.Attribute.Text;
+    dinti_asociati: Schema.Attribute.JSON;
+    imagine: Schema.Attribute.Media<'images', true> & Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::radiografie.radiografie'
+    > &
+      Schema.Attribute.Private;
+    pacient: Schema.Attribute.Relation<'manyToOne', 'api::pacient.pacient'>;
+    publishedAt: Schema.Attribute.DateTime;
+    tip_radiografie: Schema.Attribute.Enumeration<
+      ['Panoramica', 'Periapicala', 'Bitewing', 'Cefalometrica', 'CBCT', 'Alta']
+    > &
+      Schema.Attribute.Required;
+    titlu: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 200;
+      }>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    vizita: Schema.Attribute.Relation<'manyToOne', 'api::vizita.vizita'>;
+  };
+}
+
 export interface ApiVizitaVizita extends Struct.CollectionTypeSchema {
   collectionName: 'vizitas';
   info: {
@@ -1022,6 +1073,10 @@ export interface ApiVizitaVizita extends Struct.CollectionTypeSchema {
       }>;
     pacient: Schema.Attribute.Relation<'manyToOne', 'api::pacient.pacient'>;
     publishedAt: Schema.Attribute.DateTime;
+    radiografii: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::radiografie.radiografie'
+    >;
     status_vizita: Schema.Attribute.Enumeration<
       ['Programata', 'Confirmata', 'Finalizata', 'Anulata']
     > &
@@ -1563,6 +1618,7 @@ declare module '@strapi/strapi' {
       'api::plan-tratament.plan-tratament': ApiPlanTratamentPlanTratament;
       'api::plata.plata': ApiPlataPlata;
       'api::price-list.price-list': ApiPriceListPriceList;
+      'api::radiografie.radiografie': ApiRadiografieRadiografie;
       'api::vizita.vizita': ApiVizitaVizita;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
