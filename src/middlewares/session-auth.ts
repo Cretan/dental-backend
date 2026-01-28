@@ -7,12 +7,18 @@
  * 2. Resolves user's cabinet (handles Strapi v5 draft/publish states)
  * 3. Applies cabinet filtering to all data queries
  *
+ * Cabinet filtering is data-driven via the registry in
+ * src/config/cabinet-content-types.ts. Adding a new cabinet-isolated
+ * content type only requires adding it to that registry.
+ *
  * Strapi v5 draft/publish note:
  * - Each content entry has a draft row (publishedAt=null) and a published row
  * - Both share the same document_id
  * - Link tables may reference the draft row's id
  * - We must resolve to the published row for API filtering
  */
+import { CABINET_FILTERABLE_URLS } from '../config/cabinet-content-types';
+
 export default (config: Record<string, unknown>, { strapi }: { strapi: any }) => {
   return async (ctx: any, next: () => Promise<void>) => {
 
@@ -143,13 +149,15 @@ export default (config: Record<string, unknown>, { strapi }: { strapi: any }) =>
         if (ctx.url.includes('/cabinets')) {
           // Show only user's cabinet
           ctx.query.filters.id = { $eq: primaryCabinetId };
-        } else if (ctx.url.includes('/pacients') || ctx.url.includes('/vizitas') ||
-                   ctx.url.includes('/plan-trataments') || ctx.url.includes('/price-lists') ||
-                   ctx.url.includes('/doctors') || ctx.url.includes('/facturas') ||
-                   ctx.url.includes('/platas') || ctx.url.includes('/audit-logs')) {
-          // Filter by cabinet relation
-          ctx.query.filters.cabinet = ctx.query.filters.cabinet || {};
-          ctx.query.filters.cabinet.id = { $eq: primaryCabinetId };
+        } else {
+          // Data-driven cabinet filtering: check against the centralized registry
+          const matchesCabinetType = Array.from(CABINET_FILTERABLE_URLS).some(
+            (urlFragment) => ctx.url.includes(urlFragment)
+          );
+          if (matchesCabinetType) {
+            ctx.query.filters.cabinet = ctx.query.filters.cabinet || {};
+            ctx.query.filters.cabinet.id = { $eq: primaryCabinetId };
+          }
         }
       }
     } catch (error: unknown) {

@@ -7,6 +7,148 @@ import { validateFieldLengths, validateCnp, validatePhone, validateEmail, calcul
 
 const PATIENT_TEXT_FIELDS = ['nume', 'prenume', 'adresa', 'alergii', 'observatii'];
 
+/**
+ * PostgreSQL statistics: single CTE query combining total count,
+ * age distribution, and cabinet stats.
+ */
+async function statisticsPostgres(knex: any, cabinetId: number) {
+  const cteQuery = `
+    WITH cabinet_patients AS (
+      SELECT p.id, p.data_nasterii
+      FROM pacients p
+      JOIN pacients_cabinet_lnk pcl ON pcl.pacient_id = p.id
+      WHERE pcl.cabinet_id = ?
+        AND p.published_at IS NOT NULL
+    ),
+    total_count AS (
+      SELECT COUNT(*) AS count FROM cabinet_patients
+    ),
+    age_distribution AS (
+      SELECT
+        CASE
+          WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 18 THEN 'Under 18'
+          WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 35 THEN '18-35'
+          WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 50 THEN '35-50'
+          WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 65 THEN '50-65'
+          ELSE '65+'
+        END AS age_group,
+        CASE
+          WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 18 THEN 1
+          WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 35 THEN 2
+          WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 50 THEN 3
+          WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 65 THEN 4
+          ELSE 5
+        END AS sort_order,
+        COUNT(*) AS count
+      FROM cabinet_patients
+      WHERE data_nasterii IS NOT NULL
+      GROUP BY age_group, sort_order
+      ORDER BY sort_order
+    ),
+    cabinet_stats AS (
+      SELECT
+        c.nume_cabinet,
+        COUNT(cp.id) AS patient_count
+      FROM cabinets c
+      LEFT JOIN pacients_cabinet_lnk pcl ON c.id = pcl.cabinet_id
+      LEFT JOIN cabinet_patients cp ON cp.id = pcl.pacient_id
+      WHERE c.published_at IS NOT NULL AND c.id = ?
+      GROUP BY c.id, c.nume_cabinet
+      ORDER BY patient_count DESC
+    )
+    SELECT json_build_object(
+      'total', (SELECT count FROM total_count),
+      'ageDistribution', COALESCE((SELECT json_agg(row_to_json(ad)) FROM age_distribution ad), '[]'::json),
+      'byCabinet', COALESCE((SELECT json_agg(row_to_json(cs)) FROM cabinet_stats cs), '[]'::json)
+    ) AS result
+  `;
+
+  const { rows } = await knex.raw(cteQuery, [cabinetId, cabinetId]);
+  const result = rows[0]?.result || { total: 0, ageDistribution: [], byCabinet: [] };
+
+  return {
+    total: Number(result.total ?? 0),
+    ageDistribution: result.ageDistribution || [],
+    byCabinet: result.byCabinet || [],
+    timestamp: new Date().toISOString(),
+  };
+}
+
+/**
+ * SQLite statistics: sequential queries (SQLite lacks CTEs with json_agg).
+ */
+async function statisticsSqlite(knex: any, cabinetId: number) {
+  // Total count
+  const countResult = await knex('pacients')
+    .join('pacients_cabinet_lnk', 'pacients.id', 'pacients_cabinet_lnk.pacient_id')
+    .where('pacients_cabinet_lnk.cabinet_id', cabinetId)
+    .whereNotNull('pacients.published_at')
+    .count('pacients.id as count')
+    .first();
+  const total = Number(countResult?.count ?? 0);
+
+  // Age distribution
+  let ageDistribution: any[] = [];
+  try {
+    const ageQuery = `
+      SELECT age_group, COUNT(*) as count FROM (
+        SELECT
+          CASE
+            WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 18 THEN 'Under 18'
+            WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 35 THEN '18-35'
+            WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 50 THEN '35-50'
+            WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 65 THEN '50-65'
+            ELSE '65+'
+          END as age_group,
+          CASE
+            WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 18 THEN 1
+            WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 35 THEN 2
+            WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 50 THEN 3
+            WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 65 THEN 4
+            ELSE 5
+          END as sort_order
+        FROM pacients
+        JOIN pacients_cabinet_lnk pcl ON pcl.pacient_id = pacients.id
+        WHERE data_nasterii IS NOT NULL AND published_at IS NOT NULL
+        AND pcl.cabinet_id = ?
+      ) sub
+      GROUP BY age_group, sort_order
+      ORDER BY sort_order
+    `;
+    const ageGroups = await knex.raw(ageQuery, [cabinetId]);
+    ageDistribution = Array.isArray(ageGroups) ? ageGroups : [];
+  } catch {
+    ageDistribution = [];
+  }
+
+  // Cabinet stats
+  let byCabinet: any[] = [];
+  try {
+    const cabinetQuery = `
+      SELECT
+        c.nume_cabinet,
+        COUNT(p.id) as patient_count
+      FROM cabinets c
+      LEFT JOIN pacients_cabinet_lnk pcl ON c.id = pcl.cabinet_id
+      LEFT JOIN pacients p ON pcl.pacient_id = p.id AND p.published_at IS NOT NULL
+      WHERE c.published_at IS NOT NULL AND c.id = ?
+      GROUP BY c.id, c.nume_cabinet
+      ORDER BY patient_count DESC
+    `;
+    const cabinetStats = await knex.raw(cabinetQuery, [cabinetId]);
+    byCabinet = Array.isArray(cabinetStats) ? cabinetStats : [];
+  } catch {
+    byCabinet = [];
+  }
+
+  return {
+    total,
+    ageDistribution,
+    byCabinet,
+    timestamp: new Date().toISOString(),
+  };
+}
+
 export default factories.createCoreController('api::pacient.pacient', ({ strapi }) => ({
     /**
      * Log and delete patient
@@ -189,8 +331,8 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
   },
 
   /**
-   * Get patient statistics with cabinet isolation
-   * Database-agnostic: works with both PostgreSQL and SQLite
+   * Get patient statistics with cabinet isolation.
+   * Uses a single CTE query on PostgreSQL, sequential queries on SQLite.
    */
   async statistics(ctx) {
     try {
@@ -203,144 +345,10 @@ export default factories.createCoreController('api::pacient.pacient', ({ strapi 
         return ctx.forbidden('No cabinet context available');
       }
 
-      // Total count with cabinet filter
-      const countResult = await knex('pacients')
-        .join('pacients_cabinet_lnk', 'pacients.id', 'pacients_cabinet_lnk.pacient_id')
-        .where('pacients_cabinet_lnk.cabinet_id', cabinetId)
-        .whereNotNull('pacients.published_at')
-        .count('pacients.id as count')
-        .first();
-      const totalPatients: number = Number(countResult?.count ?? 0);
-
-      // Age distribution - use DB-specific date functions
-      let ageDistribution = [];
-      try {
-        let ageQuery: string;
-        const ageParams: any[] = [];
-
-        // Cabinet join/filter fragments for raw SQL
-        const cabinetJoin = cabinetId
-          ? 'JOIN pacients_cabinet_lnk pcl ON pcl.pacient_id = pacients.id'
-          : '';
-        const cabinetWhere = cabinetId
-          ? 'AND pcl.cabinet_id = ?'
-          : '';
-        if (cabinetId) {
-          ageParams.push(cabinetId);
-        }
-
-        if (dbClient === 'postgres') {
-          // PostgreSQL: use EXTRACT(YEAR FROM AGE(...))
-          ageQuery = `
-            SELECT age_group, COUNT(*) as count FROM (
-              SELECT
-                CASE
-                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 18 THEN 'Under 18'
-                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 35 THEN '18-35'
-                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 50 THEN '35-50'
-                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 65 THEN '50-65'
-                  ELSE '65+'
-                END as age_group,
-                CASE
-                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 18 THEN 1
-                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 35 THEN 2
-                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 50 THEN 3
-                  WHEN EXTRACT(YEAR FROM AGE(CAST(data_nasterii AS DATE))) < 65 THEN 4
-                  ELSE 5
-                END as sort_order
-              FROM pacients
-              ${cabinetJoin}
-              WHERE data_nasterii IS NOT NULL AND published_at IS NOT NULL
-              ${cabinetWhere}
-            ) sub
-            GROUP BY age_group, sort_order
-            ORDER BY sort_order
-          `;
-        } else {
-          // SQLite: use julianday for age calculation
-          ageQuery = `
-            SELECT age_group, COUNT(*) as count FROM (
-              SELECT
-                CASE
-                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 18 THEN 'Under 18'
-                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 35 THEN '18-35'
-                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 50 THEN '35-50'
-                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 65 THEN '50-65'
-                  ELSE '65+'
-                END as age_group,
-                CASE
-                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 18 THEN 1
-                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 35 THEN 2
-                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 50 THEN 3
-                  WHEN CAST((julianday('now') - julianday(data_nasterii)) / 365.25 AS INTEGER) < 65 THEN 4
-                  ELSE 5
-                END as sort_order
-              FROM pacients
-              ${cabinetJoin}
-              WHERE data_nasterii IS NOT NULL AND published_at IS NOT NULL
-              ${cabinetWhere}
-            ) sub
-            GROUP BY age_group, sort_order
-            ORDER BY sort_order
-          `;
-        }
-
-        const ageGroups = await knex.raw(ageQuery, ageParams);
-
-        // PostgreSQL returns { rows: [...] }, SQLite returns the array directly
-        if (dbClient === 'postgres') {
-          ageDistribution = ageGroups.rows || [];
-        } else {
-          ageDistribution = Array.isArray(ageGroups) ? ageGroups : [];
-        }
-      } catch (sqlError: unknown) {
-        const sqlMessage = sqlError instanceof Error ? sqlError.message : String(sqlError);
-        strapi.log.warn('[STATISTICS] Age distribution query failed, using fallback', sqlMessage);
-        ageDistribution = [];
+      if (dbClient === 'postgres') {
+        return await statisticsPostgres(knex, cabinetId);
       }
-
-      // Cabinet statistics - uses link table (DB-agnostic SQL)
-      let byCabinet = [];
-      try {
-        const cabinetParams: any[] = [];
-        let cabinetWhereClause = 'WHERE c.published_at IS NOT NULL';
-
-        if (cabinetId) {
-          cabinetWhereClause += ' AND c.id = ?';
-          cabinetParams.push(cabinetId);
-        }
-
-        const cabinetQuery = `
-          SELECT
-            c.nume_cabinet,
-            COUNT(p.id) as patient_count
-          FROM cabinets c
-          LEFT JOIN pacients_cabinet_lnk pcl ON c.id = pcl.cabinet_id
-          LEFT JOIN pacients p ON pcl.pacient_id = p.id AND p.published_at IS NOT NULL
-          ${cabinetWhereClause}
-          GROUP BY c.id, c.nume_cabinet
-          ORDER BY patient_count DESC
-        `;
-
-        const cabinetStats = await knex.raw(cabinetQuery, cabinetParams);
-
-        if (dbClient === 'postgres') {
-          byCabinet = cabinetStats.rows || [];
-        } else {
-          byCabinet = Array.isArray(cabinetStats) ? cabinetStats : [];
-        }
-      } catch (cabinetError: unknown) {
-        const cabinetMessage = cabinetError instanceof Error ? cabinetError.message : String(cabinetError);
-        strapi.log.warn('[STATISTICS] Cabinet stats query failed', cabinetMessage);
-        byCabinet = [];
-      }
-
-      return {
-        total: totalPatients,
-        ageDistribution,
-        byCabinet,
-        timestamp: new Date().toISOString(),
-      };
+      return await statisticsSqlite(knex, cabinetId);
     } catch (error) {
       strapi.log.error('[STATISTICS] Error:', error);
       return ctx.internalServerError('Failed to generate statistics');

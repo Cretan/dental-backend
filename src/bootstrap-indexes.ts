@@ -80,6 +80,12 @@ const LINK_TABLE_INDEXES: IndexDefinition[] = [
   // Price List relations
   { name: 'idx_price_lists_cabinet_lnk_pl', table: 'price_lists_cabinet_lnk', columns: ['price_list_id'] },
   { name: 'idx_price_lists_cabinet_lnk_cabinet', table: 'price_lists_cabinet_lnk', columns: ['cabinet_id'] },
+
+  // Radiografie relations
+  { name: 'idx_radiografii_cabinet_lnk_radiografie', table: 'radiografii_cabinet_lnk', columns: ['radiografie_id'] },
+  { name: 'idx_radiografii_cabinet_lnk_cabinet', table: 'radiografii_cabinet_lnk', columns: ['cabinet_id'] },
+  { name: 'idx_radiografii_pacient_lnk_radiografie', table: 'radiografii_pacient_lnk', columns: ['radiografie_id'] },
+  { name: 'idx_radiografii_pacient_lnk_pacient', table: 'radiografii_pacient_lnk', columns: ['pacient_id'] },
 ];
 
 /**
@@ -184,6 +190,77 @@ async function createIndex(
 }
 
 /**
+ * Trigram index definitions for PostgreSQL full-text-like search.
+ * Requires the pg_trgm extension. GIN trigram indexes accelerate
+ * ILIKE '%term%' queries that B-tree indexes cannot help with.
+ */
+interface TrigramIndexDefinition {
+  name: string;
+  table: string;
+  column: string;
+}
+
+const TRIGRAM_INDEXES: TrigramIndexDefinition[] = [
+  { name: 'idx_pacients_nume_trgm',    table: 'pacients', column: 'nume' },
+  { name: 'idx_pacients_prenume_trgm',  table: 'pacients', column: 'prenume' },
+  { name: 'idx_pacients_cnp_trgm',     table: 'pacients', column: 'cnp' },
+  { name: 'idx_pacients_telefon_trgm',  table: 'pacients', column: 'telefon' },
+  { name: 'idx_pacients_email_trgm',    table: 'pacients', column: 'email' },
+];
+
+/**
+ * Bootstrap PostgreSQL trigram indexes for fast ILIKE searches.
+ * Skipped entirely for non-PostgreSQL databases.
+ * Gracefully handles missing pg_trgm extension.
+ */
+async function bootstrapTrigramIndexes(knex: any, dbClient: string, logger: any): Promise<number> {
+  if (dbClient !== 'postgres') {
+    logger.debug('[INDEXES] Trigram indexes skipped (not PostgreSQL)');
+    return 0;
+  }
+
+  // Enable pg_trgm extension (idempotent)
+  try {
+    await knex.raw('CREATE EXTENSION IF NOT EXISTS pg_trgm');
+  } catch (error: any) {
+    logger.warn(
+      '[INDEXES] pg_trgm extension unavailable — trigram indexes skipped. ' +
+      'Run "CREATE EXTENSION pg_trgm" as a superuser to enable fast ILIKE searches. ' +
+      `Error: ${error.message}`
+    );
+    return 0;
+  }
+
+  let created = 0;
+  for (const idx of TRIGRAM_INDEXES) {
+    try {
+      const exists = await tableExists(knex, idx.table);
+      if (!exists) {
+        logger.debug(`[INDEXES] Table '${idx.table}' does not exist, skipping trigram index '${idx.name}'`);
+        continue;
+      }
+      const colExists = await knex.schema.hasColumn(idx.table, idx.column);
+      if (!colExists) {
+        logger.debug(`[INDEXES] Column '${idx.column}' not found in '${idx.table}', skipping trigram index '${idx.name}'`);
+        continue;
+      }
+      await knex.raw(
+        `CREATE INDEX IF NOT EXISTS "${idx.name}" ON "${idx.table}" USING gin ("${idx.column}" gin_trgm_ops)`
+      );
+      created++;
+    } catch (error: any) {
+      if (error.message?.includes('already exists')) {
+        logger.debug(`[INDEXES] Trigram index '${idx.name}' already exists`);
+      } else {
+        logger.warn(`[INDEXES] Failed to create trigram index '${idx.name}': ${error.message}`);
+      }
+    }
+  }
+
+  return created;
+}
+
+/**
  * Bootstrap database indexes
  * Called from src/index.ts bootstrap function
  */
@@ -215,7 +292,12 @@ export async function bootstrapIndexes(strapi: any): Promise<void> {
     }
   }
 
+  // Bootstrap trigram indexes for fast ILIKE patient search (PostgreSQL only)
+  const trigramCreated = await bootstrapTrigramIndexes(knex, dbClient, logger);
+  created += trigramCreated;
+
   logger.info(
-    `[INDEXES] Bootstrap complete: ${created} created, ${skipped} skipped, ${failed} failed (${allIndexes.length} total defined)`
+    `[INDEXES] Bootstrap complete: ${created} created, ${skipped} skipped, ${failed} failed ` +
+    `(${allIndexes.length} B-tree + ${TRIGRAM_INDEXES.length} trigram defined)`
   );
 }
