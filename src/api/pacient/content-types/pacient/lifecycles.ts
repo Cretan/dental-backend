@@ -21,6 +21,7 @@ const PATIENT_RELATIONS = [
   { table: "plan_trataments_pacient_lnk", column: "pacient_id", label: "planuri de tratament (treatment plans)" },
   { table: "facturas_pacient_lnk", column: "pacient_id", label: "facturi (invoices)" },
   { table: "platas_pacient_lnk", column: "pacient_id", label: "plăți (payments)" },
+  { table: "radiografii_pacient_lnk", column: "pacient_id", label: "radiografii (x-rays)" },
 ];
 
 export default {
